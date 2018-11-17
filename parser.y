@@ -1,10 +1,13 @@
 %{
+	#define YYSTYPE std::string
 	#include <iostream>
 	#include <string>
-	using namespace std;
+	#include "identifier.h"
+
 	int yylex();
 	void yyerror(const char *s);
 	extern int yylineno;
+	extern FILE *yyin;
 %}
 
 %token DECLARE IN END
@@ -24,18 +27,21 @@
 program:
 		DECLARE declarations IN commands END
 		{
-			cout << "Koniec" << endl;
+			std::cout << "Koniec" << std::endl;
 		}
 		;
 
 declarations:
 		declarations PID SEMI
 		{
-			cout << "PID" << endl;
+			Identifier* id = new Identifier($2, IDE);
+			std::cout << "Name: " << id->getName() << " Typ: " << id->getType() << std::endl;
 		}
 		| declarations PID LB NUM COLON NUM RB SEMI
 		{
-			cout << "ARR" << endl;
+			Identifier* id = new Identifier($2, ARR, atoi(($4).c_str()), atoi(($6).c_str()));
+			std::cout << "Name: " << id->getName() << " Typ: " << id->getType() << std::endl;
+
 		}
 		|
 		;
@@ -48,129 +54,131 @@ commands:
 command:
 		identifier ASG expression SEMI
 		{
-			cout << "Przypisanie" << endl;
+			std::cout << "Przypisanie" << std::endl;
 		}
 		| IF condition THEN commands ELSE commands ENDIF
 		{
-			cout << "if else" << endl;
+			std::cout << "if else" << std::endl;
 		}
 		| IF condition THEN commands ENDIF
 		{
-			cout << "if" << endl;
+			std::cout << "if" << std::endl;
 		}
 		| WHILE condition DO commands ENDWHILE
 		{
-			cout << "while" << endl;
+			std::cout << "while" << std::endl;
 		}
 		| DO commands WHILE condition ENDDO
 		{
-			cout << "do while" << endl;
+			std::cout << "do while" << std::endl;
 		}
 		| FOR PID FROM value TO value DO commands ENDFOR
 		{
-			cout << "from to" << endl;
+			std::cout << "from to" << std::endl;
 		}
 		| FOR PID FROM value DOWNTO value DO command ENDFOR
 		{
-			cout << "from downto" << endl;
+			std::cout << "from downto" << std::endl;
 		}
 		| READ identifier SEMI
 		{
-			cout << "read" << endl;
+			std::cout << "read" << std::endl;
 		}
 		| WRITE value SEMI
 		{
-			cout << "write" << endl;
+			std::cout << "write" << std::endl;
 		}
 		;
 
 expression:
 		value
 		{
-			cout << "value" << endl;
+			std::cout << "value" << std::endl;
 		}
 		| value ADD value
 		{
-			cout << "+" << endl;
+			std::cout << "+" << std::endl;
 		}
 		| value SUB value
 		{
-			cout << "-" << endl;
+			std::cout << "-" << std::endl;
 		}
 		| value MULT value
 		{
-			cout << "*" << endl;
+			std::cout << "*" << std::endl;
 		}
 		| value DIV value
 		{
-			cout << "/" << endl;
+			std::cout << "/" << std::endl;
 		}
 		| value MOD value
 		{
-			cout << "%" << endl;
+			std::cout << "%" << std::endl;
 		}
 		;
 
 condition:
 		value EQ value
 		{
-			cout << "equals" << endl;
+			std::cout << "equals" << std::endl;
 		}
 		| value NE value
 		{
-			cout << "not equals" << endl;
+			std::cout << "not equals" << std::endl;
 		}
 		| value LT value
 		{
-			cout << "less" << endl;
+			std::cout << "less" << std::endl;
 		}
 		| value GT value
 		{
-			cout << "great" << endl;
+			std::cout << "great" << std::endl;
 		}
 		| value LE value
 		{
-			cout << "less eq" << endl;
+			std::cout << "less eq" << std::endl;
 		}
 		| value GE value
 		{
-			cout << "great eq" << endl;
+			std::cout << "great eq" << std::endl;
 		}
 		;
 
 value:
 		NUM
 		{
-			cout << "Liczba" << endl;
+			std::cout << "Liczba" << std::endl;
 		}
 		| identifier
 		{
-			cout << "id" << endl;
+			std::cout << "id" << std::endl;
 		}
 		;
 
 identifier:
 		PID
 		{
-			cout << "id pid" << endl;
+			std::cout << "id pid" << std::endl;
 		}
 		| PID LB PID RB
 		{
-			cout << "id arr pid" << endl;
+			std::cout << "id arr pid" << std::endl;
 		}
 		| PID LB NUM RB
 		{
-			cout << "id arr num" << endl;
+			std::cout << "id arr num" << std::endl;
 		}
 		;
 
 %%
 
 void yyerror(char const *s) {
-	cerr << "Error (" << yylineno << ") " << s << endl;
+	cerr << "Error (" << yylineno << ") " << s << std::endl;
 	exit(1);
 }
 
-int main() {
+int main(int argc, char **argv) {
+	yyin = fopen(argv[1], "r");
 	yyparse();
+	fclose(yyin);
 }

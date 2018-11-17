@@ -4,7 +4,7 @@
   #define YYSTYPE std::string
   #include <string>
   #include <iostream>
-  #include "parser.hpp"
+  #include "parser.tab.hpp"
   using namespace std;
 %}
 
@@ -85,9 +85,9 @@
 
 ":"					{return COLON;}
 
-[0-9]+				{return NUM;}
+[0-9]+				{yylval = (yytext); return NUM;}
 
-[_a-z]+				{return PID;}
+[_a-z]+				{yylval = (yytext); return PID;}
 
 [ \t\n]				{}
 

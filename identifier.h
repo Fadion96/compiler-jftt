@@ -1,3 +1,6 @@
+#ifndef IDENTIFIER_H
+#define IDENTIFIER_H
+
 #include <string>
 using namespace std;
 
@@ -13,6 +16,7 @@ private:
 	PidType type;
 	long long int arr_start;
 	long long int arr_end;
+	long long int memory_start;
 
 public:
 
@@ -49,3 +53,5 @@ public:
 	}
 
 };
+
+#endif

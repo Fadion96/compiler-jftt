@@ -1,11 +1,13 @@
 %option yylineno
 %option noyywrap
 %{
-  #define YYSTYPE std::string
-  #include <string>
+  #include <string.h>
   #include <iostream>
+  #include <stdlib.h>
+  #include <stdio.h>
   #include "parser.tab.hpp"
   using namespace std;
+  extern void yyerror(const char *s);
 %}
 
 %x comment
@@ -15,7 +17,7 @@
 <comment>"]"		{BEGIN(INITIAL);}
 <comment>.			{}
 <comment>"\n"		{}
-<comment><<EOF>> 	{/*Error*/ yyterminate();}
+<comment><<EOF>> 	{yyerror("Niezakończony komentarz"); yyterminate();}
 
 "DECLARE"			{return DECLARE;}
 
@@ -85,12 +87,12 @@
 
 ":"					{return COLON;}
 
-[0-9]+				{yylval = (yytext); return NUM;}
+[0-9]+				{yylval.number = strtoull(yytext, NULL, 10); return NUM;}
 
-[_a-z]+				{yylval = (yytext); return PID;}
+[_a-z]+				{yylval.string = strdup(yytext); return PID;}
 
 [ \t\n]				{}
 
-.					{/*mozliwy error*/}
+.					{yyerror("Nieznany symbol"); yyterminate();}
 
 %%

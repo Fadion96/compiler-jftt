@@ -1,6 +1,6 @@
 .PHONY: clean
 
-all: kompilator
+all: clean  kompilator
 
 kompilator:
 		bison -d parser.y -o parser.tab.cpp

@@ -1,47 +1,87 @@
 %{
-	#define YYSTYPE std::string
+
 	#include <iostream>
 	#include <string>
+	#include <cstring>
+	#include <map>
 	#include "identifier.h"
+	#include "functions.h"
+
+	using namespace std;
 
 	int yylex();
 	void yyerror(const char *s);
 	extern int yylineno;
 	extern FILE *yyin;
+
+	map<string, Identifier*> identifierList;
+
+
 %}
 
-%token DECLARE IN END
-%token PID NUM
-%token ASG
-%token IF THEN ELSE ENDIF
-%token WHILE DO ENDWHILE ENDDO
-%token FOR FROM TO DOWNTO ENDFOR
-%token READ WRITE
-%token ADD SUB MULT DIV MOD
-%token EQ NE LT GT LE GE
-%token LB RB
-%token SEMI COLON
+%union {
+	char *string;
+	long long int number;
+}
+
+%token <string> DECLARE IN END
+%token <string> PID
+%token <number> NUM
+%token <string> ASG
+%token <string> IF THEN ELSE ENDIF
+%token <string> WHILE DO ENDWHILE ENDDO
+%token <string> FOR FROM TO DOWNTO ENDFOR
+%token <string> ADD SUB MULT DIV MOD
+%token <string> READ WRITE
+%token <string> EQ NE LT GT LE GE
+%token <string> LB RB
+%token <string> SEMI COLON
 
 %%
 
 program:
 		DECLARE declarations IN commands END
 		{
-			std::cout << "Koniec" << std::endl;
+			cout << "Koniec" << endl;
 		}
 		;
 
 declarations:
 		declarations PID SEMI
 		{
-			Identifier* id = new Identifier($2, IDE);
-			std::cout << "Name: " << id->getName() << " Typ: " << id->getType() << std::endl;
+			if(findIdetifier($2)) {
+				string errorMessage = "Ponowna deklaracja zmiennej ";
+				errorMessage.append($2);
+				yyerror(errorMessage.c_str());
+				exit(1);
+			}
+			else {
+				Identifier* id = new Identifier($2, IDE);
+				cout << "Name: " << id->getName() << " Typ: " << id->getType() << endl;
+				identifierList.emplace($2, id);
+			}
 		}
 		| declarations PID LB NUM COLON NUM RB SEMI
 		{
-			Identifier* id = new Identifier($2, ARR, atoi(($4).c_str()), atoi(($6).c_str()));
-			std::cout << "Name: " << id->getName() << " Typ: " << id->getType() << std::endl;
-
+			if(findIdetifier($2)) {
+				string errorMessage = "Ponowna deklaracja zmiennej ";
+				errorMessage.append($2);
+				yyerror(errorMessage.c_str());
+				exit(1);
+			}
+			else {
+				if($4 <= $6){
+					Identifier* id = new Identifier($2, ARR, $4, $6);
+					cout << "Name: " << id->getName() << " Typ: " << id->getType() << " "  << id->getArrayStart() << " " << id->getArrayEnd() << endl;
+					identifierList.emplace($2, id);
+				}
+				else {
+					string errorMessage = "Niewłaściwy rozmiar tablicy ";
+					errorMessage.append($2);
+					yyerror(errorMessage.c_str());
+					exit(1);
+				}
+			}
 		}
 		|
 		;
@@ -54,126 +94,126 @@ commands:
 command:
 		identifier ASG expression SEMI
 		{
-			std::cout << "Przypisanie" << std::endl;
+			cout << "Przypisanie" << endl;
 		}
 		| IF condition THEN commands ELSE commands ENDIF
 		{
-			std::cout << "if else" << std::endl;
+			cout << "if else" << endl;
 		}
 		| IF condition THEN commands ENDIF
 		{
-			std::cout << "if" << std::endl;
+			cout << "if" << endl;
 		}
 		| WHILE condition DO commands ENDWHILE
 		{
-			std::cout << "while" << std::endl;
+			cout << "while" << endl;
 		}
 		| DO commands WHILE condition ENDDO
 		{
-			std::cout << "do while" << std::endl;
+			cout << "do while" << endl;
 		}
 		| FOR PID FROM value TO value DO commands ENDFOR
 		{
-			std::cout << "from to" << std::endl;
+			cout << "from to" << endl;
 		}
 		| FOR PID FROM value DOWNTO value DO command ENDFOR
 		{
-			std::cout << "from downto" << std::endl;
+			cout << "from downto" << endl;
 		}
 		| READ identifier SEMI
 		{
-			std::cout << "read" << std::endl;
+			cout << "read" << endl;
 		}
 		| WRITE value SEMI
 		{
-			std::cout << "write" << std::endl;
+			cout << "write" << endl;
 		}
 		;
 
 expression:
 		value
 		{
-			std::cout << "value" << std::endl;
+			cout << "value" << endl;
 		}
 		| value ADD value
 		{
-			std::cout << "+" << std::endl;
+			cout << "+" << endl;
 		}
 		| value SUB value
 		{
-			std::cout << "-" << std::endl;
+			cout << "-" << endl;
 		}
 		| value MULT value
 		{
-			std::cout << "*" << std::endl;
+			cout << "*" << endl;
 		}
 		| value DIV value
 		{
-			std::cout << "/" << std::endl;
+			cout << "/" << endl;
 		}
 		| value MOD value
 		{
-			std::cout << "%" << std::endl;
+			cout << "%" << endl;
 		}
 		;
 
 condition:
 		value EQ value
 		{
-			std::cout << "equals" << std::endl;
+			cout << "equals" << endl;
 		}
 		| value NE value
 		{
-			std::cout << "not equals" << std::endl;
+			cout << "not equals" << endl;
 		}
 		| value LT value
 		{
-			std::cout << "less" << std::endl;
+			cout << "less" << endl;
 		}
 		| value GT value
 		{
-			std::cout << "great" << std::endl;
+			cout << "great" << endl;
 		}
 		| value LE value
 		{
-			std::cout << "less eq" << std::endl;
+			cout << "less eq" << endl;
 		}
 		| value GE value
 		{
-			std::cout << "great eq" << std::endl;
+			cout << "great eq" << endl;
 		}
 		;
 
 value:
 		NUM
 		{
-			std::cout << "Liczba" << std::endl;
+			cout << "Liczba" << endl;
 		}
 		| identifier
 		{
-			std::cout << "id" << std::endl;
+			cout << "id" << endl;
 		}
 		;
 
 identifier:
 		PID
 		{
-			std::cout << "id pid" << std::endl;
+			cout << "id pid" << endl;
 		}
 		| PID LB PID RB
 		{
-			std::cout << "id arr pid" << std::endl;
+			cout << "id arr pid" << endl;
 		}
 		| PID LB NUM RB
 		{
-			std::cout << "id arr num" << std::endl;
+			cout << "id arr num" << endl;
 		}
 		;
 
 %%
 
 void yyerror(char const *s) {
-	cerr << "Error (" << yylineno << ") " << s << std::endl;
+	cerr << "Błąd w linii " << yylineno << ": " << s << endl;
 	exit(1);
 }
 

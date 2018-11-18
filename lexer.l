@@ -1,6 +1,7 @@
 %option yylineno
 %option noyywrap
 %{
+  #define YYSTYPE std::string
   #include <string.h>
   #include <iostream>
   #include <stdlib.h>
@@ -87,9 +88,9 @@
 
 ":"					{return COLON;}
 
-[0-9]+				{yylval.number = strtoull(yytext, NULL, 10); return NUM;}
+[0-9]+				{yylval = yytext; return NUM;}
 
-[_a-z]+				{yylval.string = strdup(yytext); return PID;}
+[_a-z]+				{yylval = yytext; return PID;}
 
 [ \t\n]				{}
 

@@ -10,6 +10,7 @@ private:
 	string name;
 	string registr = "None";
 	bool assigment = false;
+	long long int value = 0;
 	long long int memory;
 
 public:
@@ -33,6 +34,14 @@ public:
 
 	long long int getMemory() {
 		return this->memory;
+	}
+
+	long long int getValue(){
+		return this->value;
+	}
+
+	void setValue(long long int value){
+		this->value = value;
 	}
 
 	void setAssigment() {

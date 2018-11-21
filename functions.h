@@ -9,6 +9,7 @@
 using namespace std;
 
 extern map<string, Identifier*> identifierList;
+extern map<string, Array*> arrayList;
 extern vector<string> commands;
 
 bool findIdetifier(string key) {
@@ -18,8 +19,19 @@ bool findIdetifier(string key) {
 	return false;
 }
 
+bool findArray(string key) {
+	if(arrayList.find(key) != arrayList.end()){
+		return true;
+	}
+	return false;
+}
+
 Identifier* getIdentifier(string key) {
 	return identifierList[key];
+}
+
+Array* getArray(string key) {
+	return arrayList[key];
 }
 
 bool isNumber(string key){
@@ -30,6 +42,19 @@ bool isNumber(string key){
 	catch(exception const & e) {
 		return false;
 	}
+}
+
+vector<string> split(string text, string delimiter) {
+	vector<string> list;
+	size_t pos = 0;
+	string token;
+	while ((pos = text.find(delimiter)) != string::npos) {
+		token = text.substr(0, pos);
+		list.push_back(token);
+		text.erase(0, pos + delimiter.length());
+	}
+	list.push_back(text);
+	return list;
 }
 
 void get(string reg){
@@ -53,7 +78,7 @@ void store(string reg) {
 	commands.push_back(command);
 }
 
-void copy(string reg_a, string reg_b) {
+void copyreg(string reg_a, string reg_b) {
 	string command = "COPY " + reg_a + " " + reg_b;
 	commands.push_back(command);
 }

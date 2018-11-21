@@ -9,6 +9,7 @@ private:
 	string name;
 	string* registr;
 	bool* assigment;
+	long long int* value;
 	long long int arr_start;
 	long long int arr_end;
 	long long int size;
@@ -26,6 +27,8 @@ public:
 		fill(this->registr, this->registr + this->size, "None");
 		this->assigment = new bool[size];
 		fill(this->assigment, this->assigment + this->size, false);
+		this->value = new long long int[size];
+		fill(this->value, this->value + this->size, 0);
 
 	}
 
@@ -40,6 +43,10 @@ public:
 	bool getAssigment(long long int key) {
 		return this->assigment[key];
 	}
+	long long int getValue(long long int key) {
+		return this->value[key];
+	}
+
 	long long int getArrayStart() {
 		return this->arr_start;
 	}
@@ -56,6 +63,9 @@ public:
 
 	void setRegister(long long int key, string reg){
 		this->registr[key] = reg;
+	}
+	void setValue(long long int key, long long int value){
+		this->value[key] = value;
 	}
 };
 

@@ -27,7 +27,7 @@
 	map<string, Identifier*> identifierList;
 	map<string, Array*> arrayList;
 	vector<string> commands;
-	vector<string> freeRegisters{"B", "C", "D", "E", "F", "G", "H"}; // map would be better? <reg, value>
+	vector<pair<string, string>> registers{{"B", "None"}, {"C", "None"}, {"D", "None"}, {"E", "None"}, {"F", "None"}, {"G", "None"}, {"H", "None"}}; // map would be better? <reg, value>
 
 	vector<string> ident;
 	Identifier* assign_id;
@@ -126,7 +126,6 @@ command:
 				type = IDE;
 			}
 			else if (findArray(ident[0])) {
-
 				if(isNumber(ident[1])){
 					assign_arr = make_pair(getArray(ident[0]), ident[1]);
 				}
@@ -138,16 +137,6 @@ command:
 		}
 		ASG expression SEMI
 		{
-			/* if(isNumber($4)){
-				string reg = assign_id->getRegister();
-				if(reg.compare("None") == 0) {
-					reg = freeRegisters.front();
-					assign_id->setRegister(reg);
-					freeRegisters.erase(freeRegisters.begin());
-					freeRegisters.push_back(reg);
-				}
-				createNumber(stoll($4), reg);
-			} */
 			if(type == IDE){
 				assign_id->setAssigment();
 			}
@@ -187,10 +176,31 @@ command:
 		}
 		| WRITE value SEMI
 		{
-			if(isNumber($2)){
-				string reg = freeRegisters.front();
-				freeRegisters.erase(freeRegisters.begin());
-				freeRegisters.push_back(reg);
+			if(isNumber($2)) {
+				string reg = registers.front().first;
+				vector<string> in_reg = split(registers.front().second, " ");
+				if(in_reg[0].compare("None") != 0){
+					if(DEBUG){
+						cout <<"WRITE :" << in_reg[0] << endl;
+					}
+					if(findIdetifier(in_reg[0])) {
+						Identifier* id_reg = getIdentifier(in_reg[0]);
+						createNumber(id_reg->getMemory(), "A");
+						store(reg);
+						id_reg->setRegister("None");
+					}
+					else if(findArray(in_reg[0])){
+						if(DEBUG){
+							cout << in_reg[1] << endl;
+						}
+						Array* id_arr = getArray(in_reg[0]);
+						createNumber(id_arr->getMemoryStart() + stoll(in_reg[1]) - id_arr->getArrayStart(), "A");
+						store(reg);
+						id_arr->setRegister(stoll(in_reg[1]) - id_arr->getArrayStart(), "None");
+					}
+				}
+				registers.erase(registers.begin());
+				registers.push_back(make_pair(reg,$2));
 				createNumber(stoll($2), reg);
 				put(reg);
 			}
@@ -201,7 +211,34 @@ command:
 					if(id->getAssigment()){
 						string reg = id->getRegister();
 						if(reg.compare("None") == 0) {
-							cout << "Tutaj jeszcze nic nie ma! (wczytanie zmiennej z pamięci)" << endl;
+							string write_reg = registers.front().first;
+							vector<string> in_reg = split(registers.front().second, " ");
+							if(in_reg[0].compare("None") != 0){
+								if(DEBUG){
+									cout <<"WRITE POS:" << in_reg[0] << endl;
+								}
+								if(findIdetifier(in_reg[0])) {
+									Identifier* id_reg = getIdentifier(in_reg[0]);
+									createNumber(id_reg->getMemory(), "A");
+									store(write_reg);
+									id_reg->setRegister("None");
+								}
+								else if(findArray(in_reg[0])){
+									if(DEBUG){
+										cout << in_reg[1] << endl;
+									}
+									Array* id_arr = getArray(in_reg[0]);
+									createNumber(id_arr->getMemoryStart() + stoll(in_reg[1]) - id_arr->getArrayStart(), "A");
+									store(write_reg);
+									id_arr->setRegister(stoll(in_reg[1]) - id_arr->getArrayStart(), "None");
+								}
+							}
+							createNumber(id->getMemory(), "A");
+							load(write_reg);
+							id->setRegister(write_reg);
+							put(write_reg);
+							registers.erase(registers.begin());
+							registers.push_back(make_pair(write_reg,id->getName()));
 						}
 						else {
 							put(reg);
@@ -220,7 +257,35 @@ command:
 						if(arr_write->getAssigment(stoll(write[1]) - arr_write->getArrayStart())) {
 							string reg = arr_write->getRegister(stoll(write[1]) - arr_write->getArrayStart());
 							if(reg.compare("None") == 0) {
-								cout << "Tutaj jeszcze nic nie ma! (wczytanie zmiennej z pamięci)" << endl;
+								cout << write[0] << " " << write[1] << " ARR: Tutaj jeszcze nic nie ma! (wczytanie zmiennej z pamięci)" << endl;
+								string write_reg = registers.front().first;
+								vector<string> in_reg = split(registers.front().second, " ");
+								if(in_reg[0].compare("None") != 0){
+									if(DEBUG){
+										cout <<"WRITE POS:" << in_reg[0] << endl;
+									}
+									if(findIdetifier(in_reg[0])) {
+										Identifier* id_reg = getIdentifier(in_reg[0]);
+										createNumber(id_reg->getMemory(), "A");
+										store(write_reg);
+										id_reg->setRegister("None");
+									}
+									else if(findArray(in_reg[0])){
+										if(DEBUG){
+											cout << in_reg[1] << endl;
+										}
+										Array* id_arr = getArray(in_reg[0]);
+										createNumber(id_arr->getMemoryStart() + stoll(in_reg[1]) - id_arr->getArrayStart(), "A");
+										store(write_reg);
+										id_arr->setRegister(stoll(in_reg[1]) - id_arr->getArrayStart(), "None");
+									}
+								}
+								createNumber(arr_write->getMemoryStart() + stoll(write[1]) - arr_write->getArrayStart() , "A");
+								load(write_reg);
+								arr_write->setRegister(stoll(write[1]) - arr_write->getArrayStart(), write_reg);
+								put(write_reg);
+								registers.erase(registers.begin());
+								registers.push_back(make_pair(write_reg, arr_write->getName() + " " + write[1]));
 							}
 							else {
 								put(reg);
@@ -233,7 +298,6 @@ command:
 							exit(1);
 						}
 					}
-
 				}
 			}
 		}
@@ -251,47 +315,183 @@ expression:
 					reg = assign_arr.first->getRegister(stoll(assign_arr.second) - assign_arr.first->getArrayStart());
 				}
 				if(reg.compare("None") == 0) {
-					reg = freeRegisters.front();
+					reg = registers.front().first;
+					vector<string> in_reg = split(registers.front().second, " ");
+					if(in_reg[0].compare("None") != 0){
+						if(DEBUG){
+							cout << in_reg[0] << endl;
+						}
+						if(findIdetifier(in_reg[0])) {
+							Identifier* id_reg = getIdentifier(in_reg[0]);
+							createNumber(id_reg->getMemory(), "A");
+							store(reg);
+							id_reg->setRegister("None");
+						}
+						else if(findArray(in_reg[0])){
+							if(DEBUG){
+								cout << in_reg[1] << endl;
+							}
+							Array* id_arr = getArray(in_reg[0]);
+							createNumber(id_arr->getMemoryStart() + stoll(in_reg[1]) - id_arr->getArrayStart(), "A");
+							store(reg);
+							id_arr->setRegister(stoll(in_reg[1]) - id_arr->getArrayStart(), "None");
+						}
+					}
 					if(type == IDE){
 							assign_id->setRegister(reg);
+							registers.erase(registers.begin());
+							registers.push_back(make_pair(reg, assign_id->getName()));
 					}
 					else {
 						assign_arr.first->setRegister(stoll(assign_arr.second) - assign_arr.first->getArrayStart() , reg);
+							registers.erase(registers.begin());
+							registers.push_back(make_pair(reg, assign_arr.first->getName() + " " +assign_arr.second));
 					}
-					freeRegisters.erase(freeRegisters.begin());
-					freeRegisters.push_back(reg);
 				}
 				createNumber(stoll($1), reg);
-			}
-			else if (findIdetifier($1)) {
-				Identifier* id = getIdentifier($1);
-				if(id->getAssigment()){
-					string reg = id->getRegister();
-					if(reg.compare("None") == 0) {
-						cout << "Tutaj jeszcze nic nie ma! (wczytanie zmiennej z pamięci)" << endl;
-					}
-					else {
-						string assign_reg = assign_id->getRegister();
-						if(assign_reg.compare("None") == 0) {
-							assign_reg = freeRegisters.front();
-							assign_id->setRegister(assign_reg);
-							freeRegisters.erase(freeRegisters.begin());
-							freeRegisters.push_back(assign_reg);
-						}
-						copyreg(assign_reg, reg);
-					}
+				if(type == IDE){
+						assign_id->setValue(stoll($1));
 				}
 				else {
-					string errorMessage = "Odwołanie do niezainicjowanej zmiennej ";
-					errorMessage.append($1);
-					yyerror(errorMessage.c_str());
-					exit(1);
+					assign_arr.first->setValue(stoll(assign_arr.second) - assign_arr.first->getArrayStart() , stoll($1));
 				}
 			}
-			/* else {
-				pid[nr/pid]
+			else {
+				vector<string> pid_value =split($1, " ");
+				if (findIdetifier(pid_value[0])) {
+
+					Identifier* id = getIdentifier(pid_value[0]);
+					if(id->getAssigment()){
+						string reg = id->getRegister();
+						if(reg.compare("None") == 0) {
+							cout << id->getMemory() << endl;
+							cout << "Tutaj jeszcze nic nie ma! (wczytanie zmiennej z pamięci)" << endl;
+						}
+						else {
+							string assign_reg;
+							if(type == IDE){
+								assign_reg = assign_id->getRegister();
+							}
+							else {
+								assign_reg = assign_arr.first->getRegister(stoll(assign_arr.second) - assign_arr.first->getArrayStart());
+							}
+							if(assign_reg.compare("None") == 0) {
+								assign_reg = registers.front().first;
+								vector<string> in_reg = split(registers.front().second, " ");
+								if(in_reg[0].compare("None") != 0){
+									if(DEBUG){
+										cout << in_reg[0] << endl;
+									}
+									if(findIdetifier(in_reg[0])) {
+										Identifier* id_reg = getIdentifier(in_reg[0]);
+										createNumber(id_reg->getMemory(), "A");
+										store(assign_reg);
+										id_reg->setRegister("None");
+									}
+									else if(findArray(in_reg[0])){
+										if(DEBUG){
+											cout << in_reg[1] << endl;
+										}
+										Array* id_arr = getArray(in_reg[0]);
+										createNumber(id_arr->getMemoryStart() + stoll(in_reg[1]) - id_arr->getArrayStart(), "A");
+										store(reg);
+										id_arr->setRegister(stoll(in_reg[1]) - id_arr->getArrayStart(), "None");
+									}
+								}
+								if(type == IDE){
+										assign_id->setRegister(assign_reg);
+										registers.erase(registers.begin());
+										registers.push_back(make_pair(assign_reg, assign_id->getName()));
+								}
+								else {
+									assign_arr.first->setRegister(stoll(assign_arr.second) - assign_arr.first->getArrayStart() , assign_reg);
+									registers.erase(registers.begin());
+									registers.push_back(make_pair(assign_reg, assign_arr.first->getName() + " " +assign_arr.second));
+								}
+							}
+							copyreg(assign_reg, reg);
+							if(type == IDE){
+									assign_id->setValue(id->getValue());
+							}
+							else {
+								assign_arr.first->setValue(stoll(assign_arr.second) - assign_arr.first->getArrayStart() , id->getValue());
+							}
+						}
+					}
+					else {
+						string errorMessage = "Odwołanie do niezainicjowanej zmiennej ";
+						errorMessage.append(pid_value[0]);
+						yyerror(errorMessage.c_str());
+						exit(1);
+					}
+				}
+				else if (findArray(pid_value[0])) {
+					Array* arr = getArray(pid_value[0]);
+					if(arr->getAssigment(stoll(pid_value[1]) - arr->getArrayStart())) {
+						string reg = arr->getRegister(stoll(pid_value[1]) - arr->getArrayStart());
+						if(reg.compare("None") == 0) {
+							cout << "Tutaj jeszcze nic nie ma! (wczytanie zmiennej z pamięci)" << endl;
+						}
+						else {
+							string assign_reg;
+							if(type == IDE){
+								assign_reg = assign_id->getRegister();
+							}
+							else {
+								assign_reg = assign_arr.first->getRegister(stoll(assign_arr.second) - assign_arr.first->getArrayStart());
+							}
+							if(assign_reg.compare("None") == 0) {
+								assign_reg = registers.front().first;
+								vector<string> in_reg = split(registers.front().second, " ");
+								if(in_reg[0].compare("None") != 0){
+									if(DEBUG){
+										cout << in_reg[0] << endl;
+									}
+									if(findIdetifier(in_reg[0])) {
+										Identifier* id_reg = getIdentifier(in_reg[0]);
+										createNumber(id_reg->getMemory(), "A");
+										store(assign_reg);
+										id_reg->setRegister("None");
+									}
+									else if(findArray(in_reg[0])){
+										if(DEBUG){
+											cout << in_reg[1] << endl;
+										}
+										Array* id_arr = getArray(in_reg[0]);
+										createNumber(id_arr->getMemoryStart() + stoll(in_reg[1]) - id_arr->getArrayStart(), "A");
+										store(reg);
+										id_arr->setRegister(stoll(in_reg[1]) - id_arr->getArrayStart(), "None");
+									}
+								}
+								if(type == IDE){
+									assign_id->setRegister(assign_reg);
+									registers.erase(registers.begin());
+									registers.push_back(make_pair(assign_reg, assign_id->getName()));
+								}
+								else {
+									assign_arr.first->setRegister(stoll(assign_arr.second) - assign_arr.first->getArrayStart() , assign_reg);
+									registers.erase(registers.begin());
+									registers.push_back(make_pair(assign_reg, assign_arr.first->getName() + " " +assign_arr.second));
+								}
+							}
+							copyreg(assign_reg, reg);
+							if(type == IDE){
+									assign_id->setValue(arr->getValue(stoll(pid_value[1]) - arr->getArrayStart()));
+							}
+							else {
+								assign_arr.first->setValue(stoll(assign_arr.second) - assign_arr.first->getArrayStart() , arr->getValue(stoll(pid_value[1]) - arr->getArrayStart()));
+							}
+						}
+					}
+					else {
+						string errorMessage = "Odwołanie do niezainicjowanej zmiennej w tablicy ";
+						errorMessage.append(pid_value[0]);
+						yyerror(errorMessage.c_str());
+						exit(1);
+					}
+				}
 			}
-			*/
+
 		}
 		| value ADD value
 		{
@@ -359,14 +559,62 @@ identifier:
 			if(findIdetifier($1)) {
 				$$=$1;
 			}
+			else {
+				string errorMessage;
+				if(findArray($1)){
+					errorMessage = "Niewłaściwe odwołanie do tablicy ";
+				}
+				else {
+					errorMessage = "Odwołanie do niezadeklarowanej zmiennej ";
+				}
+				errorMessage.append($1);
+				yyerror(errorMessage.c_str());
+				exit(1);
+			}
 		}
 		| PID LB PID RB
 		{
 			if(findArray($1)) {
-
+				if(findIdetifier($3)) {
+					if(getIdentifier($3)->getAssigment()){
+						int number = getIdentifier($3)->getValue();
+						if(getArray($1)->getArrayStart() > number|| getArray($1)->getArrayEnd() < number) {
+							string errorMessage = "Odwołanie do elementu spoza zakresu tablicy ";
+							errorMessage.append($1);
+							yyerror(errorMessage.c_str());
+							exit(1);
+						}
+						else {
+							$$ = $1 + " " + to_string(number);
+						}
+					}
+					else {
+						string errorMessage = "Odwołanie do niezainicjowanej zmiennej ";
+						errorMessage.append($3);
+						yyerror(errorMessage.c_str());
+						exit(1);
+					}
+				}
+				else {
+					string errorMessage = "Odwołanie do niezadeklarowanej zmiennej ";
+					errorMessage.append($3);
+					yyerror(errorMessage.c_str());
+					exit(1);
+				}
 			}
-			/* find pid*/
-			cout << "id arr pid" << endl;
+			else {
+				string errorMessage;
+				if(findIdetifier($1)){
+					errorMessage = "Niewłaściwe odwołanie do zmiennej ";
+				}
+				else {
+					errorMessage = "Odwołanie do niezadeklarowanej tablicy ";
+				}
+				errorMessage.append($1);
+				yyerror(errorMessage.c_str());
+				exit(1);
+			}
+
 		}
 		| PID LB NUM RB
 		{
@@ -381,6 +629,18 @@ identifier:
 				else {
 					$$ = $1 + " " + $3;
 				}
+			}
+			else {
+				string errorMessage;
+				if(findIdetifier($1)){
+					errorMessage = "Niewłaściwe odwołanie do zmiennej ";
+				}
+				else {
+					errorMessage = "Odwołanie do niezadeklarowanej tablicy ";
+				}
+				errorMessage.append($1);
+				yyerror(errorMessage.c_str());
+				exit(1);
 			}
 		}
 		;
@@ -402,6 +662,10 @@ int main(int argc, char **argv) {
 	for(long long int i = 0; i < commands.size(); i++) {
 		out << commands[i] << endl;
 	}
+	for(long long int i = 0; i < registers.size(); i++) {
+		cout << registers[i].first << ":" << registers[i].second << " | ";
+	}
+	cout<< endl;
 	out.close();
 
 }

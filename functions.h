@@ -11,6 +11,7 @@ using namespace std;
 extern map<string, Identifier*> identifierList;
 extern map<string, Array*> arrayList;
 extern vector<string> commands;
+extern vector<pair<string, string>> registers;
 
 bool findIdetifier(string key) {
 	if(identifierList.find(key) != identifierList.end()){
@@ -152,10 +153,30 @@ void createNumber(long long int number, string reg) {
 		if(bin[i] == '1') {
 			inc(reg);
 		}
-		if( i < len -1) {
+		if( i < len - 1) {
 			add(reg,reg);
 		}
 	}
+}
+
+string getRegID(){
+	string reg = registers.front().first;
+	vector<string> in_register = split(registers.front().second, " ");
+	if (in_register[0].compare("None") != 0) {
+		if (findIdetifier(in_register[0])) {
+			Identifier* id = getIdentifier(in_register[0]);
+			createNumber(id->getMemory(), "A");
+			store(reg);
+			id->setRegister("None");
+		}
+		else if (findArray(in_register[0])) {
+			Array* arr = getArray(in_register[0]);
+			createNumber(arr->getMemoryStart() + stoll(in_register[1]) - arr->getArrayStart(), "A");
+			store(reg);
+			arr->setRegister(stoll(in_register[1]) - arr->getArrayStart(), "None");
+		}
+	}
+	return reg;
 }
 
 void wypisz(){

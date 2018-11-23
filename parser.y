@@ -159,8 +159,56 @@ command:
 		}
 		| READ identifier SEMI
 		{
-			if (findIdetifier($1)) {
-				Identifier* read = getIdentifier($1);
+			vector<string> read = split($2, " ");
+			if (findIdetifier(read[0])) {
+				Identifier* id = getIdentifier(read[0]);
+				string reg = id->getRegister();
+				if(reg.compare("None") == 0) {
+					reg = getRegID();
+					id->setRegister(reg);
+					registers.erase(registers.begin());
+					registers.push_back(make_pair(reg,id->getName()));
+				}
+				get(reg);
+				id->setAssigment();
+			}
+			else if (findArray(read[0])) {
+				Array* arr_write = getArray(read[0]);
+				if (isNumber(read[1])) {
+					createNumber(arr_write->getMemoryStart() + stoll(read[1]), "A");
+					string tmp_reg = getRegID();
+					registers.erase(registers.begin());
+					registers.push_back(make_pair(tmp_reg, "None"));
+					get(tmp_reg);
+					store(tmp_reg);
+				}
+				else if (findIdetifier(read[1])) {
+					Identifier* tmp = getIdentifier(read[1]);
+					if (tmp->getAssigment()) {
+						string tmp_reg = tmp->getRegister();
+						if (tmp_reg.compare("None") == 0) {
+							tmp_reg = getRegID();
+							registers.erase(registers.begin());
+							registers.push_back(make_pair(tmp_reg, read[1]));
+							tmp->setRegister(tmp_reg);
+							createNumber(tmp->getMemory(), "A");
+							load(tmp_reg);
+						}
+						createNumber(arr_write->getMemoryStart(), "A");
+						add("A", tmp_reg);
+						string read_reg = getRegID();
+						registers.erase(registers.begin());
+						registers.push_back(make_pair(tmp_reg, "None"));
+						get(read_reg);
+						store(read_reg);
+					}
+					else {
+						string errorMessage = "Odwołanie do niezainicjowanej zmiennej ";
+						errorMessage.append(read[1]);
+						yyerror(errorMessage.c_str());
+						exit(1);
+					}
+				}
 			}
 		}
 		| WRITE value SEMI

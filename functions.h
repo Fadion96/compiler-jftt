@@ -60,7 +60,6 @@ vector<string> split(string text, string delimiter) {
 
 void get(string reg){
 	string command = "GET " + reg;
-	cout << command << endl;
 	commands.push_back(command);
 }
 

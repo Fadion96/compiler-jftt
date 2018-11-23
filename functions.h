@@ -169,12 +169,6 @@ string getRegID(){
 			store(reg);
 			id->setRegister("None");
 		}
-		else if (findArray(in_register[0])) {
-			Array* arr = getArray(in_register[0]);
-			createNumber(arr->getMemoryStart() + stoll(in_register[1]) - arr->getArrayStart(), "A");
-			store(reg);
-			arr->setRegister(stoll(in_register[1]) - arr->getArrayStart(), "None");
-		}
 	}
 	return reg;
 }

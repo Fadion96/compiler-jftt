@@ -342,6 +342,8 @@ expression:
 							createNumber(arr->getMemoryStart(), "A");
 							add("A", tmp_reg);
 							load(reg);
+							registers.erase(registers.begin());
+							registers.push_back(make_pair(reg, "None"));
 							string assign_reg = loadAssignReg();
 							copyreg(assign_reg, reg);
 							if (type == ARR) {
@@ -551,6 +553,9 @@ expression:
 									copyreg(assign_reg, reg_a);
 								}
 								add(assign_reg, reg_b);
+								if (type == ARR) {
+									storeArrayAssign(assign_reg);
+								}
 							}
 							else if (findIdetifier(second_comp[1])) {
 								Identifier* tmp_id = getIdentifier(second_comp[1]);
@@ -574,21 +579,130 @@ expression:
 										copyreg(assign_reg, reg_a);
 									}
 									add(assign_reg, reg_b);
+									if (type == ARR) {
+										storeArrayAssign(assign_reg);
+									}
 								}
 							}
 						}
 					}
-
 				}
-				else if (findArray($1)){
+				else if (findArray(first_comp[0])){
+					Array* first_array = getArray(first_comp[0]);
+					string reg_a;
+					if (isNumber(first_comp[1])) {
+						reg_a = getRegID();
+						createNumber(first_array->getMemoryStart() + stoll(first_comp[1]), "A");
+						load(reg_a);
+						registers.erase(registers.begin());
+						registers.push_back(make_pair(reg_a, "None"));
+					}
+					else if (findIdetifier(first_comp[1])) {
+						Identifier* tmp = getIdentifier(first_comp[1]);
+						if (tmp->getAssigment()) {
+							string tmp_reg = tmp->getRegister();
+							if (tmp_reg.compare("None") == 0) {
+								tmp_reg = getRegID();
+								registers.erase(registers.begin());
+								registers.push_back(make_pair(tmp_reg, first_comp[1]));
+								tmp->setRegister(tmp_reg);
+								createNumber(tmp->getMemory(), "A");
+								load(tmp_reg);
+							}
+							reg_a = getRegID();
+							createNumber(first_array->getMemoryStart(), "A");
+							add("A", tmp_reg);
+							load(reg_a);
+							registers.erase(registers.begin());
+							registers.push_back(make_pair(reg_a, "None"));
+						}
+					}
 					if (isNumber($3)) {
-
+						string reg_b = getRegID();
+						registers.erase(registers.begin());
+						registers.push_back(make_pair(reg_b, "None"));
+						createNumber(stoll($3), reg_b);
+						assign_reg = loadAssignReg();
+						copyreg(assign_reg, reg_a);
+						add(assign_reg, reg_b);
+						if (type == ARR) {
+							storeArrayAssign(assign_reg);
+						}
 					}
-					else if (findIdetifier($3)) {
-
-					}
-					else if (findArray($3)) {
-
+					else {
+						vector<string> second_comp = split($3, " ");
+						if (findIdetifier(second_comp[0])) {
+							Identifier* second_id = getIdentifier(second_comp[0]);
+							if (second_id->getAssigment()){
+								string reg_b = second_id->getRegister();
+								if(reg_b.compare("None") == 0) {
+									reg_b = getRegID();
+									createNumber(second_id->getMemory(), "A");
+									load(reg_b);
+									second_id->setRegister(reg_b);
+									registers.erase(registers.begin());
+									registers.push_back(make_pair(reg_b, second_id->getName()));
+								}
+								assign_reg = loadAssignReg();
+								if (assign_reg.compare(reg_b) == 0) {
+									add(assign_reg, reg_a);
+								}
+								else {
+									copyreg(assign_reg, reg_a);
+									add(assign_reg, reg_b);
+								}
+								if (type == ARR) {
+									storeArrayAssign(assign_reg);
+								}
+							}
+							else {
+								string errorMessage = "Odwołanie do niezainicjowanej zmiennej ";
+								errorMessage.append(second_comp[0]);
+								yyerror(errorMessage.c_str());
+								exit(1);
+							}
+						}
+						else if (findArray(second_comp[0])) {
+							Array* second_arr = getArray(second_comp[0]);
+							if (isNumber(second_comp[1])) {
+								string reg_b = getRegID();
+								registers.erase(registers.begin());
+								registers.push_back(make_pair(reg_b, "None"));
+								createNumber(second_arr->getMemoryStart() + stoll(second_comp[1]), "A");
+								load(reg_b);
+								assign_reg = loadAssignReg();
+								copyreg(assign_reg, reg_a);
+								add(assign_reg, reg_b);
+								if (type == ARR) {
+									storeArrayAssign(assign_reg);
+								}
+							}
+							else if (findIdetifier(second_comp[1])) {
+								Identifier* tmp_id = getIdentifier(second_comp[1]);
+								string reg_b;
+								if (tmp_id->getAssigment()) {
+									string add_tmp = tmp_id->getRegister();
+									if (add_tmp.compare("None") == 0) {
+										add_tmp = getRegID();
+										registers.erase(registers.begin());
+										registers.push_back(make_pair(add_tmp, second_comp[1]));
+										tmp_id->setRegister(add_tmp);
+										createNumber(tmp_id->getMemory(), "A");
+										load(add_tmp);
+									}
+									reg_b = getRegID();
+									createNumber(second_arr->getMemoryStart(), "A");
+									add("A", add_tmp);
+									load(reg_b);
+									assign_reg = loadAssignReg();
+									copyreg(assign_reg, reg_a);
+									add(assign_reg, reg_b);
+									if (type == ARR) {
+										storeArrayAssign(assign_reg);
+									}
+								}
+							}
+						}
 					}
 				}
 			}

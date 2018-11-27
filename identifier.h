@@ -9,6 +9,7 @@ class Identifier {
 private:
 	string name;
 	bool assigment = false;
+	bool iterator = false;
 	long long int memory;
 
 public:
@@ -16,6 +17,11 @@ public:
 	Identifier (string name, long long int memory) {
 		this->name = name;
 		this->memory = memory;
+	}
+	Identifier (string name, long long int memory, bool iterator) {
+		this->name = name;
+		this->memory = memory;
+		this->iterator = iterator;
 	}
 
 	string getName() {
@@ -27,6 +33,10 @@ public:
 
 	long long int getMemory() {
 		return this->memory;
+	}
+
+	bool getIterator(){
+		return this->iterator;
 	}
 
 	void setAssigment() {

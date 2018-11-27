@@ -76,7 +76,7 @@ declarations:
 			else {
 				Identifier* id = new Identifier($2, memoryIndex);
 				if(DEBUG){
-					cout << "Name: " << id->getName() << " Typ: zmienna " << endl;
+					cout << "Name: " << id->getName() << " Iterator: " << id->getIterator() << endl;
 				}
 				identifierList.emplace($2, id);
 				memoryIndex++;
@@ -123,6 +123,11 @@ command:
 			ident = split($1, " ");
 			if (findIdetifier(ident[0])) {
 				assign_id = getIdentifier(ident[0]);
+				if(assign_id->getIterator()) {
+					string errorMessage = "Próba zmiany wartości iteratora: ";
+					errorMessage.append(ident[0]);
+					yyerror(errorMessage.c_str());
+				}
 				type = IDE;
 			}
 			else if (findArray(ident[0])) {
@@ -144,25 +149,23 @@ command:
 			jump("-1");
 			fixJump(jumpPosition);
 		}
-		ELSE commands
+		ELSE commands ENDIF
 		{
 			long long int jump = elseStack.top();
 			elseStack.pop();
 			fixJump(jump);
 		}
-		ENDIF
-		| IF condition THEN commands
+		| IF condition THEN commands ENDIF
 		{
 			long long int jump = jumpStack.top();
 			jumpStack.pop();
 			fixJump(jump);
 		}
-		ENDIF
 		| WHILE
 		{
 			loopStack.push(step);
 		}
-		condition DO commands
+		condition DO commands ENDWHILE
 		{
 		 	long long int jumpPosition = jumpStack.top();
 			jumpStack.pop();
@@ -170,7 +173,6 @@ command:
 			loopStack.pop();
 			fixJump(jumpPosition);
 		}
-		ENDWHILE
 		| DO
 		{
 			loopStack.push(step);
@@ -183,13 +185,339 @@ command:
 			loopStack.pop();
 			fixJump(jumpPosition);
 		}
-		| FOR PID FROM value TO value DO commands ENDFOR
+		| FOR PID FROM value TO value
 		{
-			cout << "from to" << endl;
+			Identifier* id;
+			if (findIdetifier($2) || findArray($2)) {
+				string errorMessage = "Ponowna deklaracja zmiennej ";
+				errorMessage.append($2);
+				yyerror(errorMessage.c_str());
+				exit(1);
+			}
+			else {
+				id = new Identifier($2, memoryIndex, true);
+				if(DEBUG){
+					cout << "Name: " << id->getName() << " Iterator: "  << id->getIterator() << endl;
+				}
+				identifierList.emplace($2, id);
+				memoryIndex++;
+			}
+			Identifier* first_temp_value = new Identifier("TEMP" + $4, memoryIndex);
+			memoryIndex++;
+			if(DEBUG){
+				cout << "Name: " << first_temp_value->getName() << " Iterator: "  << first_temp_value->getIterator() << endl;
+			}
+			Identifier* second_temp_value = new Identifier("TEMP" + $6, memoryIndex);
+			memoryIndex++;
+			if(DEBUG){
+				cout << "Name: " << second_temp_value->getName() << " Iterator: "  << second_temp_value->getIterator() << endl;
+			}
+			if (isNumber($4)) {
+				string reg = getRegID();
+				createNumber(stoll($4), reg);
+				createNumber(first_temp_value->getMemory(), "A");
+				store(reg);
+			}
+			else {
+				vector<string> first_value = split($4, " ");
+				if (findIdetifier(first_value[0])) {
+					Identifier* tmp_id = getIdentifier(first_value[0]);
+					if (tmp_id->getAssigment()) {
+						string reg = getRegID();
+						createNumber(tmp_id->getMemory(), "A");
+						load(reg);
+						createNumber(first_temp_value->getMemory(), "A");
+						store(reg);
+					}
+					else {
+						string errorMessage = "Odwołanie do niezainicjowanej zmiennej ";
+						errorMessage.append(first_value[0]);
+						yyerror(errorMessage.c_str());
+					}
+				}
+				else if (findArray(first_value[0])) {
+					Array* tmp_arr = getArray(first_value[0]);
+					if (isNumber(first_value[1])) {
+						string reg = getRegID();
+						createNumber(tmp_arr->getMemoryStart() + stoll(first_value[1]) , "A");
+						load(reg);
+						createNumber(first_temp_value->getMemory(), "A");
+						store(reg);
+					}
+					else if (findIdetifier(first_value[1])) {
+						Identifier* tmp = getIdentifier(first_value[1]);
+						if (tmp->getAssigment()) {
+							string tmp_reg = getRegID();
+							createNumber(tmp->getMemory(), "A");
+							load(tmp_reg);
+							string reg = getRegID();
+							createNumber(tmp_arr->getMemoryStart(), "A");
+							add("A", tmp_reg);
+							load(reg);
+							createNumber(first_temp_value->getMemory(), "A");
+							store(reg);
+						}
+						else {
+							string errorMessage = "Odwołanie do niezainicjowanej zmiennej ";
+							errorMessage.append(first_value[1]);
+							yyerror(errorMessage.c_str());
+						}
+					}
+				}
+			}
+			if (isNumber($6)) {
+				string reg = getRegID();
+				createNumber(stoll($6), reg);
+				createNumber(second_temp_value->getMemory(), "A");
+				store(reg);
+			}
+			else {
+				vector<string> second_value = split($6, " ");
+				if (findIdetifier(second_value[0])) {
+					Identifier* tmp_id = getIdentifier(second_value[0]);
+					if (tmp_id->getAssigment()) {
+						string reg = getRegID();
+						createNumber(tmp_id->getMemory(), "A");
+						load(reg);
+						createNumber(second_temp_value->getMemory(), "A");
+						store(reg);
+					}
+					else {
+						string errorMessage = "Odwołanie do niezainicjowanej zmiennej ";
+						errorMessage.append(second_value[0]);
+						yyerror(errorMessage.c_str());
+					}
+				}
+				else if (findArray(second_value[0])) {
+					Array* tmp_arr = getArray(second_value[0]);
+					if (isNumber(second_value[1])) {
+						string reg = getRegID();
+						createNumber(tmp_arr->getMemoryStart() + stoll(second_value[1]) , "A");
+						load(reg);
+						createNumber(second_temp_value->getMemory(), "A");
+						store(reg);
+					}
+					else if (findIdetifier(second_value[1])) {
+						Identifier* tmp = getIdentifier(second_value[1]);
+						if (tmp->getAssigment()) {
+							string tmp_reg = getRegID();
+							createNumber(tmp->getMemory(), "A");
+							load(tmp_reg);
+							string reg = getRegID();
+							createNumber(tmp_arr->getMemoryStart(), "A");
+							add("A", tmp_reg);
+							load(reg);
+							createNumber(second_temp_value->getMemory(), "A");
+							store(reg);
+						}
+						else {
+							string errorMessage = "Odwołanie do niezainicjowanej zmiennej ";
+							errorMessage.append(second_value[1]);
+							yyerror(errorMessage.c_str());
+						}
+					}
+				}
+			}
+			string from_value_reg = getRegID();
+			string iterator_reg = getRegID();
+			string to_value_reg = getRegID();
+			createNumber(first_temp_value->getMemory(), "A");
+			load(from_value_reg);
+			copyreg(iterator_reg, from_value_reg);
+			id->setAssigment();
+			createNumber(id->getMemory(), "A");
+			store(iterator_reg);
+			loopStack.push(step);
+			createNumber(id->getMemory(), "A");
+			load(iterator_reg);
+			createNumber(second_temp_value->getMemory(), "A");
+			load(to_value_reg);
+			inc(to_value_reg);
+			sub(to_value_reg, iterator_reg);
+			jumpStack.push(step);
+			jzero(to_value_reg, to_string(-1));
 		}
-		| FOR PID FROM value DOWNTO value DO command ENDFOR
+		DO commands ENDFOR
 		{
-			cout << "from downto" << endl;
+			string iterator_reg = getRegID();
+			createNumber(getIdentifier($2)->getMemory(), "A");
+			load(iterator_reg);
+			inc(iterator_reg);
+			store(iterator_reg);
+			long long int jumpPosition = jumpStack.top();
+			jumpStack.pop();
+			jump(to_string(loopStack.top()));
+			loopStack.pop();
+			fixJump(jumpPosition);
+			identifierList.erase($2);
+		}
+		| FOR PID FROM value DOWNTO value
+		{
+			Identifier* id;
+			if (findIdetifier($2) || findArray($2)) {
+				string errorMessage = "Ponowna deklaracja zmiennej ";
+				errorMessage.append($2);
+				yyerror(errorMessage.c_str());
+				exit(1);
+			}
+			else {
+				id = new Identifier($2, memoryIndex, true);
+				if(DEBUG){
+					cout << "Name: " << id->getName() << " Iterator: "  << id->getIterator() << endl;
+				}
+				identifierList.emplace($2, id);
+				memoryIndex++;
+			}
+			Identifier* first_temp_value = new Identifier("TEMP" + $4, memoryIndex);
+			if(DEBUG){
+				cout << "Name: " << first_temp_value->getName() << " Iterator: "  << first_temp_value->getIterator() << endl;
+			}
+			memoryIndex++;
+			Identifier* second_temp_value = new Identifier("TEMP" + $6, memoryIndex);
+			memoryIndex++;
+			if(DEBUG){
+				cout << "Name: " << second_temp_value->getName() << " Iterator: "  << second_temp_value->getIterator() << endl;
+			}
+			if (isNumber($4)) {
+				string reg = getRegID();
+				createNumber(stoll($4), reg);
+				createNumber(first_temp_value->getMemory(), "A");
+				store(reg);
+			}
+			else {
+				vector<string> first_value = split($4, " ");
+				if (findIdetifier(first_value[0])) {
+					Identifier* tmp_id = getIdentifier(first_value[0]);
+					if (tmp_id->getAssigment()) {
+						string reg = getRegID();
+						createNumber(tmp_id->getMemory(), "A");
+						load(reg);
+						createNumber(first_temp_value->getMemory(), "A");
+						store(reg);
+					}
+					else {
+						string errorMessage = "Odwołanie do niezainicjowanej zmiennej ";
+						errorMessage.append(first_value[0]);
+						yyerror(errorMessage.c_str());
+					}
+				}
+				else if (findArray(first_value[0])) {
+					Array* tmp_arr = getArray(first_value[0]);
+					if (isNumber(first_value[1])) {
+						string reg = getRegID();
+						createNumber(tmp_arr->getMemoryStart() + stoll(first_value[1]) , "A");
+						load(reg);
+						createNumber(first_temp_value->getMemory(), "A");
+						store(reg);
+					}
+					else if (findIdetifier(first_value[1])) {
+						Identifier* tmp = getIdentifier(first_value[1]);
+						if (tmp->getAssigment()) {
+							string tmp_reg = getRegID();
+							createNumber(tmp->getMemory(), "A");
+							load(tmp_reg);
+							string reg = getRegID();
+							createNumber(tmp_arr->getMemoryStart(), "A");
+							add("A", tmp_reg);
+							load(reg);
+							createNumber(first_temp_value->getMemory(), "A");
+							store(reg);
+						}
+						else {
+							string errorMessage = "Odwołanie do niezainicjowanej zmiennej ";
+							errorMessage.append(first_value[1]);
+							yyerror(errorMessage.c_str());
+						}
+					}
+				}
+			}
+			if (isNumber($6)) {
+				string reg = getRegID();
+				createNumber(stoll($6), reg);
+				createNumber(second_temp_value->getMemory(), "A");
+				store(reg);
+			}
+			else {
+				vector<string> second_value = split($6, " ");
+				if (findIdetifier(second_value[0])) {
+					Identifier* tmp_id = getIdentifier(second_value[0]);
+					if (tmp_id->getAssigment()) {
+						string reg = getRegID();
+						createNumber(tmp_id->getMemory(), "A");
+						load(reg);
+						createNumber(second_temp_value->getMemory(), "A");
+						store(reg);
+					}
+					else {
+						string errorMessage = "Odwołanie do niezainicjowanej zmiennej ";
+						errorMessage.append(second_value[0]);
+						yyerror(errorMessage.c_str());
+					}
+				}
+				else if (findArray(second_value[0])) {
+					Array* tmp_arr = getArray(second_value[0]);
+					if (isNumber(second_value[1])) {
+						string reg = getRegID();
+						createNumber(tmp_arr->getMemoryStart() + stoll(second_value[1]) , "A");
+						load(reg);
+						createNumber(second_temp_value->getMemory(), "A");
+						store(reg);
+					}
+					else if (findIdetifier(second_value[1])) {
+						Identifier* tmp = getIdentifier(second_value[1]);
+						if (tmp->getAssigment()) {
+							string tmp_reg = getRegID();
+							createNumber(tmp->getMemory(), "A");
+							load(tmp_reg);
+							string reg = getRegID();
+							createNumber(tmp_arr->getMemoryStart(), "A");
+							add("A", tmp_reg);
+							load(reg);
+							createNumber(second_temp_value->getMemory(), "A");
+							store(reg);
+						}
+						else {
+							string errorMessage = "Odwołanie do niezainicjowanej zmiennej ";
+							errorMessage.append(second_value[1]);
+							yyerror(errorMessage.c_str());
+						}
+					}
+				}
+			}
+			string from_value_reg = getRegID();
+			string iterator_reg = getRegID();
+			string to_value_reg = getRegID();
+			createNumber(first_temp_value->getMemory(), "A");
+			load(from_value_reg);
+			copyreg(iterator_reg, from_value_reg);
+			id->setAssigment();
+			createNumber(id->getMemory(), "A");
+			store(iterator_reg);
+			loopStack.push(step);
+			createNumber(id->getMemory(), "A");
+			load(iterator_reg);
+			createNumber(second_temp_value->getMemory(), "A");
+			load(to_value_reg);
+			inc(iterator_reg);
+			sub(iterator_reg, to_value_reg);
+			jumpStack.push(step);
+			jzero(iterator_reg, to_string(-1));
+
+		}
+		DO command ENDFOR
+		{
+			string iterator_reg = getRegID();
+			createNumber(getIdentifier($2)->getMemory(), "A");
+			load(iterator_reg);
+			jzero(iterator_reg, to_string(step + 4));
+			dec(iterator_reg);
+			store(iterator_reg);
+			long long int jumpPosition = jumpStack.top();
+			jumpStack.pop();
+			jump(to_string(loopStack.top()));
+			loopStack.pop();
+			fixJump(jumpPosition);
+			identifierList.erase($2);
 		}
 		| READ identifier SEMI
 		{
@@ -415,8 +743,6 @@ condition:
 		{
 			string reg_a;
 			string reg_b;
-			string reg_comp_a;
-			string reg_comp_b;
 			tie(reg_a, reg_b) = loadValuesToRegister($1,$3);
 			sub(reg_b, reg_a);
 			jumpStack.push(step);
@@ -426,14 +752,10 @@ condition:
 		{
 			string reg_a;
 			string reg_b;
-			string reg_comp_a;
-			string reg_comp_b;
 			tie(reg_a, reg_b) = loadValuesToRegister($1,$3);
-			inc(reg_b);
-			sub(reg_b, reg_a);
-			jzero(reg_comp_a, to_string(step + 2));
+			sub(reg_a, reg_b);
 			jumpStack.push(step);
-			jump("-1");
+			jzero(reg_a, to_string(-1));
 		}
 		| value LE value
 		{
@@ -451,13 +773,11 @@ condition:
 		{
 			string reg_a;
 			string reg_b;
-			string reg_comp_a;
-			string reg_comp_b;
 			tie(reg_a, reg_b) = loadValuesToRegister($1,$3);
-			sub(reg_b, reg_a);
-			jzero(reg_comp_a, to_string(step + 2));
+			inc(reg_a);
+			sub(reg_a, reg_b);
 			jumpStack.push(step);
-			jump("-1");
+			jzero(reg_a, to_string(-1));
 		}
 		;
 
@@ -566,12 +886,13 @@ int main(int argc, char **argv) {
 	yyparse();
 	fclose(yyin);
 	wypisz();
-	ofstream out;
-	out.open(argv[2]);
-	for (long long int i = 0; i < commands.size(); i++) {
-		out << commands[i] << endl;
+	if (!DEBUG) {
+		ofstream out;
+		out.open(argv[2]);
+		for (long long int i = 0; i < commands.size(); i++) {
+			out << commands[i] << endl;
+		}
+		out.close();
 	}
-	cout << endl;
-	out.close();
 
 }

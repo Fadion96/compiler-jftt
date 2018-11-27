@@ -8,7 +8,6 @@ using namespace std;
 class Identifier {
 private:
 	string name;
-	string registr = "None";
 	bool assigment = false;
 	long long int memory;
 
@@ -22,11 +21,6 @@ public:
 	string getName() {
 		return this->name;
 	}
-
-	string getRegister() {
-		return this->registr;
-	}
-
 	bool getAssigment() {
 		return this->assigment;
 	}
@@ -37,10 +31,6 @@ public:
 
 	void setAssigment() {
 		this->assigment = true;
-	}
-
-	void setRegister(string reg){
-		this->registr = reg;
 	}
 };
 

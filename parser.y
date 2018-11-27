@@ -5,6 +5,7 @@
 	#include <cstring>
 	#include <map>
 	#include <vector>
+	#include <stack>
 	#include <fstream>
 	#include "identifier.h"
 	#include "array.h"
@@ -25,7 +26,10 @@
 	map<string, Identifier*> identifierList;
 	map<string, Array*> arrayList;
 	vector<string> commands;
-	vector<pair<string, string>> registers{{"B", "None"}, {"C", "None"}, {"D", "None"}, {"E", "None"}, {"F", "None"}, {"G", "None"}, {"H", "None"}}; // map would be better? <reg, value>
+	vector<string> registers{"B","C","D","E","F","G","H"}; // map would be better? <reg, value> nope
+	stack<long long int> jumpStack;
+	stack<long long int> elseStack;
+
 
 	vector<string> ident;
 	Identifier* assign_id;
@@ -131,14 +135,22 @@ command:
 				assign_id->setAssigment();
 			}
 		}
-		| IF condition THEN commands ELSE commands ENDIF
+		| IF condition THEN commands
+		{
+			cout << " "<< $2 << endl;
+		}
+		ELSE commands ENDIF
 		{
 			cout << "if else" << endl;
 		}
-		| IF condition THEN commands ENDIF
+		| IF condition THEN commands
 		{
-			cout << "if" << endl;
+			long long int jump = jumpStack.top();
+			jumpStack.pop();
+			fixJump(jump);
 		}
+		ENDIF
+
 		| WHILE condition DO commands ENDWHILE
 		{
 			cout << "while" << endl;
@@ -158,56 +170,38 @@ command:
 		| READ identifier SEMI
 		{
 			vector<string> read = split($2, " ");
+			string reg;
 			if (findIdetifier(read[0])) {
 				Identifier* id = getIdentifier(read[0]);
-				string reg = id->getRegister();
-				if(reg.compare("None") == 0) {
-					reg = getRegID();
-					id->setRegister(reg);
-					registers.erase(registers.begin());
-					registers.push_back(make_pair(reg,id->getName()));
-				}
-				get(reg);
+				reg = getRegID();
+				createNumber(id->getMemory(), "A");
 				id->setAssigment();
 			}
 			else if (findArray(read[0])) {
 				Array* arr_write = getArray(read[0]);
 				if (isNumber(read[1])) {
+					reg = getRegID();
 					createNumber(arr_write->getMemoryStart() + stoll(read[1]), "A");
-					string tmp_reg = getRegID();
-					registers.erase(registers.begin());
-					registers.push_back(make_pair(tmp_reg, "None"));
-					get(tmp_reg);
-					store(tmp_reg);
 				}
 				else if (findIdetifier(read[1])) {
 					Identifier* tmp = getIdentifier(read[1]);
 					if (tmp->getAssigment()) {
-						string tmp_reg = tmp->getRegister();
-						if (tmp_reg.compare("None") == 0) {
-							tmp_reg = getRegID();
-							registers.erase(registers.begin());
-							registers.push_back(make_pair(tmp_reg, read[1]));
-							tmp->setRegister(tmp_reg);
-							createNumber(tmp->getMemory(), "A");
-							load(tmp_reg);
-						}
+						string tmp_reg = getRegID();
+						createNumber(tmp->getMemory(), "A");
+						load(tmp_reg);
 						createNumber(arr_write->getMemoryStart(), "A");
 						add("A", tmp_reg);
-						string read_reg = getRegID();
-						registers.erase(registers.begin());
-						registers.push_back(make_pair(tmp_reg, "None"));
-						get(read_reg);
-						store(read_reg);
+						reg = getRegID();
 					}
 					else {
 						string errorMessage = "Odwołanie do niezainicjowanej zmiennej ";
 						errorMessage.append(read[1]);
 						yyerror(errorMessage.c_str());
-						exit(1);
-					}
+						}
 				}
 			}
+			get(reg);
+			store(reg);
 		}
 		| WRITE value SEMI
 		{
@@ -217,26 +211,20 @@ command:
 			}
 			else {
 				vector<string> write = split($2, " ");
+				string reg;
 				if (findIdetifier(write[0])) {
 					Identifier* id = getIdentifier(write[0]);
 					if (id->getAssigment()) {
-						string reg = id->getRegister();
-						if(reg.compare("None") == 0) {
-							reg = getRegID();
-							createNumber(id->getMemory(), "A");
-							load(reg);
-							id->setRegister(reg);
-							registers.erase(registers.begin());
-							registers.push_back(make_pair(reg,id->getName()));
-						}
+						reg = getRegID();
+						createNumber(id->getMemory(), "A");
+						load(reg);
 						put(reg);
 					}
 					else {
 						string errorMessage = "Odwołanie do niezainicjowanej zmiennej ";
 						errorMessage.append(write[0]);
 						yyerror(errorMessage.c_str());
-						exit(1);
-					}
+						}
 				}
 				else if (findArray(write[0])) {
 					Array* arr_write = getArray(write[0]);
@@ -248,15 +236,9 @@ command:
 					else if (findIdetifier(write[1])) {
 						Identifier* tmp = getIdentifier(write[1]);
 						if (tmp->getAssigment()) {
-							string tmp_reg = tmp->getRegister();
-							if (tmp_reg.compare("None") == 0) {
-								tmp_reg = getRegID();
-								registers.erase(registers.begin());
-								registers.push_back(make_pair(tmp_reg, write[1]));
-								tmp->setRegister(tmp_reg);
-								createNumber(tmp->getMemory(), "A");
-								load(tmp_reg);
-							}
+							string tmp_reg = getRegID();
+							createNumber(tmp->getMemory(), "A");
+							load(tmp_reg);
 							createNumber(arr_write->getMemoryStart(), "A");
 							add("A", tmp_reg);
 							load("A");
@@ -266,7 +248,6 @@ command:
 							string errorMessage = "Odwołanie do niezainicjowanej zmiennej ";
 							errorMessage.append(write[1]);
 							yyerror(errorMessage.c_str());
-							exit(1);
 						}
 					}
 				}
@@ -276,788 +257,84 @@ command:
 
 expression:
 		value
-		{
+		 {
+			string reg;
 			if (isNumber($1)) {
-				string reg = loadAssignReg();
+				reg = getRegID();
 				createNumber(stoll($1), reg);
-				if (type == ARR) {
-					storeArrayAssign(reg);
-				}
 			}
 			else {
 				vector<string> pid_value = split($1, " ");
 				if (findIdetifier(pid_value[0])) {
 					Identifier* id = getIdentifier(pid_value[0]);
 					if (id->getAssigment()) {
-						string reg = id->getRegister();
-						if (reg.compare("None") == 0) {
-							reg = getRegID();
-							createNumber(id->getMemory(), "A");
-							load(reg);
-							id->setRegister(reg);
-							registers.erase(registers.begin());
-							registers.push_back(make_pair(reg,id->getName()));
-						}
-						string assign_reg = loadAssignReg();
-						copyreg(assign_reg, reg);
-						if (type == ARR) {
-							storeArrayAssign(assign_reg);
-						}
+						reg = getRegID();
+						createNumber(id->getMemory(), "A");
+						load(reg);
 					}
 					else {
 						string errorMessage = "Odwołanie do niezainicjowanej zmiennej ";
 						errorMessage.append(pid_value[0]);
 						yyerror(errorMessage.c_str());
-						exit(1);
 					}
 				}
 				else if (findArray(pid_value[0])) {
 					Array* arr = getArray(pid_value[0]);
 					if (isNumber(pid_value[1])) {
-						string reg = getRegID();
+						reg = getRegID();
 						createNumber(arr->getMemoryStart() + stoll(pid_value[1]) , "A");
 						load(reg);
-						registers.erase(registers.begin());
-						registers.push_back(make_pair(reg, "None"));
-						string assign_reg = loadAssignReg();
-						copyreg(assign_reg, reg);
-						if (type == ARR) {
-							storeArrayAssign(assign_reg);
-						}
 					}
 					else if (findIdetifier(pid_value[1])) {
-						string reg;
 						Identifier* tmp = getIdentifier(pid_value[1]);
 						if (tmp->getAssigment()) {
-							string tmp_reg = tmp->getRegister();
-							if (tmp_reg.compare("None") == 0) {
-								tmp_reg = getRegID();
-								registers.erase(registers.begin());
-								registers.push_back(make_pair(tmp_reg, pid_value[1]));
-								tmp->setRegister(tmp_reg);
-								createNumber(tmp->getMemory(), "A");
-								load(tmp_reg);
-							}
+							string tmp_reg = getRegID();
+							createNumber(tmp->getMemory(), "A");
+							load(tmp_reg);
 							reg = getRegID();
 							createNumber(arr->getMemoryStart(), "A");
 							add("A", tmp_reg);
 							load(reg);
-							registers.erase(registers.begin());
-							registers.push_back(make_pair(reg, "None"));
-							string assign_reg = loadAssignReg();
-							copyreg(assign_reg, reg);
-							if (type == ARR) {
-								storeArrayAssign(assign_reg);
-							}
+						}
+						else {
+							string errorMessage = "Odwołanie do niezainicjowanej zmiennej ";
+							errorMessage.append(pid_value[1]);
+							yyerror(errorMessage.c_str());
 						}
 					}
 				}
+			}
+			if (type == ARR) {
+				storeArrayAssign(reg);
+			}
+			else if (type == IDE) {
+				storeIdeAssign(reg);
 			}
 		}
 		| value ADD value
 		{
-			if (isNumber($1)) {
-				if (isNumber($3)) {
-					string reg_a = loadAssignReg();
-					createNumber(stoll($1), reg_a);
-					string reg_b = getRegID();
-					registers.erase(registers.begin());
-					registers.push_back(make_pair(reg_b, "None"));
-					createNumber(stoll($3), reg_b);
-					add(reg_a, reg_b);
-					if (type == ARR) {
-						storeArrayAssign(reg_a);
-					}
-				}
-				else {
-					vector<string> add_value = split($3, " ");
-					if (findIdetifier(add_value[0])) {
-						Identifier* add_comp = getIdentifier(add_value[0]);
-						string reg_a;
-						if (type == IDE && add_comp->getName().compare(assign_id->getName()) == 0) {
-							reg_a = getRegID();
-							registers.erase(registers.begin());
-							registers.push_back(make_pair(reg_a, "None"));
-						}
-						else {
-							reg_a = loadAssignReg();
-						}
-						createNumber(stoll($1), reg_a);
-						if (add_comp->getAssigment()) {
-							string add_reg = add_comp->getRegister();
-							if (add_reg.compare("None") == 0) {
-								add_reg = getRegID();
-								registers.erase(registers.begin());
-								registers.push_back(make_pair(add_reg, add_value[0]));
-								add_comp->setRegister(add_reg);
-								createNumber(add_comp->getMemory(), "A");
-								load(add_reg);
-							}
-							add(reg_a, add_reg);
-							if (type == IDE){
-								string assign_reg = loadAssignReg();
-								copyreg(assign_reg, reg_a);
-							}
-							if (type == ARR) {
-								storeArrayAssign(reg_a);
-							}
-						}
-						else {
-							string errorMessage = "Odwołanie do niezainicjowanej zmiennej ";
-							errorMessage.append(add_value[0]);
-							yyerror(errorMessage.c_str());
-							exit(1);
-						}
-
-					}
-					else if (findArray(add_value[0])) {
-						Array* add_arr = getArray(add_value[0]);
-						if (isNumber(add_value[1])) {
-							string reg_a = loadAssignReg();
-							createNumber(stoll($1), reg_a);
-							string add_reg = getRegID();
-							registers.erase(registers.begin());
-							registers.push_back(make_pair(add_reg, "None"));
-							createNumber(add_arr->getMemoryStart() + stoll(add_value[1]), "A");
-							load(add_reg);
-							add(reg_a, add_reg);
-							if (type == ARR) {
-								storeArrayAssign(reg_a);
-							}
-						}
-						else if (findIdetifier(add_value[1])) {
-							Identifier* tmp_id = getIdentifier(add_value[1]);
-							string reg_a;
-							if (type == IDE && tmp_id->getName().compare(assign_id->getName()) == 0) {
-								reg_a = getRegID();
-								registers.erase(registers.begin());
-								registers.push_back(make_pair(reg_a, "None"));
-							}
-							else {
-								reg_a = loadAssignReg();
-							}
-							createNumber(stoll($1), reg_a);
-							string add_reg;
-							if (tmp_id->getAssigment()) {
-								string add_tmp = tmp_id->getRegister();
-								if (add_tmp.compare("None") == 0) {
-									add_tmp = getRegID();
-									registers.erase(registers.begin());
-									registers.push_back(make_pair(add_tmp, add_value[1]));
-									tmp_id->setRegister(add_tmp);
-									createNumber(tmp_id->getMemory(), "A");
-									load(add_tmp);
-								}
-								add_reg = getRegID();
-								createNumber(add_arr->getMemoryStart(), "A");
-								add("A", add_tmp);
-								load(add_reg);
-								add(reg_a, add_reg);
-								if (type == IDE){
-									string assign_reg = loadAssignReg();
-									copyreg(assign_reg, reg_a);
-								}
-								if (type == ARR) {
-									storeArrayAssign(reg_a);
-								}
-							}
-						}
-					}
-				}
+			string reg_a;
+			string reg_b;
+			tie(reg_a, reg_b) = loadValuesToRegister($1,$3);
+			add(reg_a, reg_b);
+			if (type == IDE){
+				storeIdeAssign(reg_a);
 			}
-			else {
-				vector<string> first_comp = split($1, " ");
-				string assign_reg;
-				if (findIdetifier(first_comp[0])) {
-					string reg_a;
-					Identifier* first_id = getIdentifier(first_comp[0]);
-					if (first_id->getAssigment()){
-						reg_a = first_id->getRegister();
-						if(reg_a.compare("None") == 0) {
-							reg_a = getRegID();
-							createNumber(first_id->getMemory(), "A");
-							load(reg_a);
-							first_id->setRegister(reg_a);
-							registers.erase(registers.begin());
-							registers.push_back(make_pair(reg_a, first_id->getName()));
-						}
-					}
-					else {
-						string errorMessage = "Odwołanie do niezainicjowanej zmiennej ";
-						errorMessage.append(first_comp[0]);
-						yyerror(errorMessage.c_str());
-						exit(1);
-					}
-					if (isNumber($3)) {
-						string reg_b = getRegID();
-						registers.erase(registers.begin());
-						registers.push_back(make_pair(reg_b, "None"));
-						createNumber(stoll($3), reg_b);
-						assign_reg = loadAssignReg();
-						if (assign_reg.compare(reg_a) != 0) {
-							copyreg(assign_reg, reg_a);
-						}
-						add(assign_reg, reg_b);
-						if (type == ARR) {
-							storeArrayAssign(assign_reg);
-						}
-					}
-					else {
-						vector<string> second_comp = split($3, " ");
-						if (findIdetifier(second_comp[0])) {
-							Identifier* second_id = getIdentifier(second_comp[0]);
-							if (second_id->getAssigment()){
-								string reg_b = second_id->getRegister();
-								if(reg_b.compare("None") == 0) {
-									reg_b = getRegID();
-									createNumber(second_id->getMemory(), "A");
-									load(reg_b);
-									second_id->setRegister(reg_b);
-									registers.erase(registers.begin());
-									registers.push_back(make_pair(reg_b, second_id->getName()));
-								}
-								assign_reg = loadAssignReg();
-								if (assign_reg.compare(reg_a) != 0) {
-									if (assign_reg.compare(reg_b) == 0) {
-										add(assign_reg, reg_a);
-									}
-									else {
-										copyreg(assign_reg, reg_a);
-										add(assign_reg, reg_b);
-									}
-								}
-								else {
-									add(assign_reg, reg_b);
-								}
-								if (type == ARR) {
-									storeArrayAssign(assign_reg);
-								}
-							}
-							else {
-								string errorMessage = "Odwołanie do niezainicjowanej zmiennej ";
-								errorMessage.append(second_comp[0]);
-								yyerror(errorMessage.c_str());
-								exit(1);
-							}
-						}
-						else if (findArray(second_comp[0])) {
-							Array* second_arr = getArray(second_comp[0]);
-							if (isNumber(second_comp[1])) {
-								string reg_b = getRegID();
-								registers.erase(registers.begin());
-								registers.push_back(make_pair(reg_b, "None"));
-								createNumber(second_arr->getMemoryStart() + stoll(second_comp[1]), "A");
-								load(reg_b);
-								assign_reg = loadAssignReg();
-								if (assign_reg.compare(reg_a) != 0) {
-									copyreg(assign_reg, reg_a);
-								}
-								add(assign_reg, reg_b);
-								if (type == ARR) {
-									storeArrayAssign(assign_reg);
-								}
-							}
-							else if (findIdetifier(second_comp[1])) {
-								Identifier* tmp_id = getIdentifier(second_comp[1]);
-								string reg_b;
-								if (tmp_id->getAssigment()) {
-									string add_tmp = tmp_id->getRegister();
-									if (add_tmp.compare("None") == 0) {
-										add_tmp = getRegID();
-										registers.erase(registers.begin());
-										registers.push_back(make_pair(add_tmp, second_comp[1]));
-										tmp_id->setRegister(add_tmp);
-										createNumber(tmp_id->getMemory(), "A");
-										load(add_tmp);
-									}
-									reg_b = getRegID();
-									createNumber(second_arr->getMemoryStart(), "A");
-									add("A", add_tmp);
-									load(reg_b);
-									assign_reg = loadAssignReg();
-									if (assign_reg.compare(reg_a) != 0) {
-										copyreg(assign_reg, reg_a);
-									}
-									add(assign_reg, reg_b);
-									if (type == ARR) {
-										storeArrayAssign(assign_reg);
-									}
-								}
-							}
-						}
-					}
-				}
-				else if (findArray(first_comp[0])){
-					Array* first_array = getArray(first_comp[0]);
-					string reg_a;
-					if (isNumber(first_comp[1])) {
-						reg_a = getRegID();
-						createNumber(first_array->getMemoryStart() + stoll(first_comp[1]), "A");
-						load(reg_a);
-						registers.erase(registers.begin());
-						registers.push_back(make_pair(reg_a, "None"));
-					}
-					else if (findIdetifier(first_comp[1])) {
-						Identifier* tmp = getIdentifier(first_comp[1]);
-						if (tmp->getAssigment()) {
-							string tmp_reg = tmp->getRegister();
-							if (tmp_reg.compare("None") == 0) {
-								tmp_reg = getRegID();
-								registers.erase(registers.begin());
-								registers.push_back(make_pair(tmp_reg, first_comp[1]));
-								tmp->setRegister(tmp_reg);
-								createNumber(tmp->getMemory(), "A");
-								load(tmp_reg);
-							}
-							reg_a = getRegID();
-							createNumber(first_array->getMemoryStart(), "A");
-							add("A", tmp_reg);
-							load(reg_a);
-							registers.erase(registers.begin());
-							registers.push_back(make_pair(reg_a, "None"));
-						}
-					}
-					if (isNumber($3)) {
-						string reg_b = getRegID();
-						registers.erase(registers.begin());
-						registers.push_back(make_pair(reg_b, "None"));
-						createNumber(stoll($3), reg_b);
-						assign_reg = loadAssignReg();
-						copyreg(assign_reg, reg_a);
-						add(assign_reg, reg_b);
-						if (type == ARR) {
-							storeArrayAssign(assign_reg);
-						}
-					}
-					else {
-						vector<string> second_comp = split($3, " ");
-						if (findIdetifier(second_comp[0])) {
-							Identifier* second_id = getIdentifier(second_comp[0]);
-							if (second_id->getAssigment()){
-								string reg_b = second_id->getRegister();
-								if(reg_b.compare("None") == 0) {
-									reg_b = getRegID();
-									createNumber(second_id->getMemory(), "A");
-									load(reg_b);
-									second_id->setRegister(reg_b);
-									registers.erase(registers.begin());
-									registers.push_back(make_pair(reg_b, second_id->getName()));
-								}
-								assign_reg = loadAssignReg();
-								if (assign_reg.compare(reg_b) == 0) {
-									add(assign_reg, reg_a);
-								}
-								else {
-									copyreg(assign_reg, reg_a);
-									add(assign_reg, reg_b);
-								}
-								if (type == ARR) {
-									storeArrayAssign(assign_reg);
-								}
-							}
-							else {
-								string errorMessage = "Odwołanie do niezainicjowanej zmiennej ";
-								errorMessage.append(second_comp[0]);
-								yyerror(errorMessage.c_str());
-								exit(1);
-							}
-						}
-						else if (findArray(second_comp[0])) {
-							Array* second_arr = getArray(second_comp[0]);
-							if (isNumber(second_comp[1])) {
-								string reg_b = getRegID();
-								registers.erase(registers.begin());
-								registers.push_back(make_pair(reg_b, "None"));
-								createNumber(second_arr->getMemoryStart() + stoll(second_comp[1]), "A");
-								load(reg_b);
-								assign_reg = loadAssignReg();
-								copyreg(assign_reg, reg_a);
-								add(assign_reg, reg_b);
-								if (type == ARR) {
-									storeArrayAssign(assign_reg);
-								}
-							}
-							else if (findIdetifier(second_comp[1])) {
-								Identifier* tmp_id = getIdentifier(second_comp[1]);
-								string reg_b;
-								if (tmp_id->getAssigment()) {
-									string add_tmp = tmp_id->getRegister();
-									if (add_tmp.compare("None") == 0) {
-										add_tmp = getRegID();
-										registers.erase(registers.begin());
-										registers.push_back(make_pair(add_tmp, second_comp[1]));
-										tmp_id->setRegister(add_tmp);
-										createNumber(tmp_id->getMemory(), "A");
-										load(add_tmp);
-									}
-									reg_b = getRegID();
-									createNumber(second_arr->getMemoryStart(), "A");
-									add("A", add_tmp);
-									load(reg_b);
-									assign_reg = loadAssignReg();
-									copyreg(assign_reg, reg_a);
-									add(assign_reg, reg_b);
-									if (type == ARR) {
-										storeArrayAssign(assign_reg);
-									}
-								}
-							}
-						}
-					}
-				}
+			else if (type == ARR) {
+				storeArrayAssign(reg_a);
 			}
 		}
 		| value SUB value
 		{
-			if (isNumber($1)) {
-				if (isNumber($3)) {
-					string reg_a = loadAssignReg();
-					createNumber(stoll($1), reg_a);
-					string reg_b = getRegID();
-					registers.erase(registers.begin());
-					registers.push_back(make_pair(reg_b, "None"));
-					createNumber(stoll($3), reg_b);
-					sub(reg_a, reg_b);
-					if (type == ARR) {
-						storeArrayAssign(reg_a);
-					}
-				}
-				else {
-					vector<string> add_value = split($3, " ");
-					if (findIdetifier(add_value[0])) {
-						Identifier* add_comp = getIdentifier(add_value[0]);
-						string reg_a;
-						if (type == IDE && add_comp->getName().compare(assign_id->getName()) == 0) {
-							reg_a = getRegID();
-							registers.erase(registers.begin());
-							registers.push_back(make_pair(reg_a, "None"));
-						}
-						else {
-							reg_a = loadAssignReg();
-						}
-						createNumber(stoll($1), reg_a);
-						if (add_comp->getAssigment()) {
-							string add_reg = add_comp->getRegister();
-							if (add_reg.compare("None") == 0) {
-								add_reg = getRegID();
-								registers.erase(registers.begin());
-								registers.push_back(make_pair(add_reg, add_value[0]));
-								add_comp->setRegister(add_reg);
-								createNumber(add_comp->getMemory(), "A");
-								load(add_reg);
-							}
-							sub(reg_a, add_reg);
-							if (type == IDE){
-								string assign_reg = loadAssignReg();
-								copyreg(assign_reg, reg_a);
-							}
-							if (type == ARR) {
-								storeArrayAssign(reg_a);
-							}
-						}
-						else {
-							string errorMessage = "Odwołanie do niezainicjowanej zmiennej ";
-							errorMessage.append(add_value[0]);
-							yyerror(errorMessage.c_str());
-							exit(1);
-						}
-
-					}
-					else if (findArray(add_value[0])) {
-						Array* add_arr = getArray(add_value[0]);
-						if (isNumber(add_value[1])) {
-							string reg_a = loadAssignReg();
-							createNumber(stoll($1), reg_a);
-							string add_reg = getRegID();
-							registers.erase(registers.begin());
-							registers.push_back(make_pair(add_reg, "None"));
-							createNumber(add_arr->getMemoryStart() + stoll(add_value[1]), "A");
-							load(add_reg);
-							sub(reg_a, add_reg);
-							if (type == ARR) {
-								storeArrayAssign(reg_a);
-							}
-						}
-						else if (findIdetifier(add_value[1])) {
-							Identifier* tmp_id = getIdentifier(add_value[1]);
-							string reg_a;
-							if (type == IDE && tmp_id->getName().compare(assign_id->getName()) == 0) {
-								reg_a = getRegID();
-								registers.erase(registers.begin());
-								registers.push_back(make_pair(reg_a, "None"));
-							}
-							else {
-								reg_a = loadAssignReg();
-							}
-							createNumber(stoll($1), reg_a);
-							string add_reg;
-							if (tmp_id->getAssigment()) {
-								string add_tmp = tmp_id->getRegister();
-								if (add_tmp.compare("None") == 0) {
-									add_tmp = getRegID();
-									registers.erase(registers.begin());
-									registers.push_back(make_pair(add_tmp, add_value[1]));
-									tmp_id->setRegister(add_tmp);
-									createNumber(tmp_id->getMemory(), "A");
-									load(add_tmp);
-								}
-								add_reg = getRegID();
-								createNumber(add_arr->getMemoryStart(), "A");
-								add("A", add_tmp);
-								load(add_reg);
-								sub(reg_a, add_reg);
-								if (type == IDE){
-									string assign_reg = loadAssignReg();
-									copyreg(assign_reg, reg_a);
-								}
-								if (type == ARR) {
-									storeArrayAssign(reg_a);
-								}
-							}
-						}
-					}
-				}
+			string reg_a;
+			string reg_b;
+			tie(reg_a, reg_b) = loadValuesToRegister($1,$3);
+			sub(reg_a, reg_b);
+			if (type == IDE){
+				storeIdeAssign(reg_a);
 			}
-			else {
-				vector<string> first_comp = split($1, " ");
-				string assign_reg;
-				if (findIdetifier(first_comp[0])) {
-					string reg_a;
-					Identifier* first_id = getIdentifier(first_comp[0]);
-					if (first_id->getAssigment()){
-						reg_a = first_id->getRegister();
-						if(reg_a.compare("None") == 0) {
-							reg_a = getRegID();
-							createNumber(first_id->getMemory(), "A");
-							load(reg_a);
-							first_id->setRegister(reg_a);
-							registers.erase(registers.begin());
-							registers.push_back(make_pair(reg_a, first_id->getName()));
-						}
-					}
-					else {
-						string errorMessage = "Odwołanie do niezainicjowanej zmiennej ";
-						errorMessage.append(first_comp[0]);
-						yyerror(errorMessage.c_str());
-						exit(1);
-					}
-					if (isNumber($3)) {
-						string reg_b = getRegID();
-						registers.erase(registers.begin());
-						registers.push_back(make_pair(reg_b, "None"));
-						createNumber(stoll($3), reg_b);
-						assign_reg = loadAssignReg();
-						if (assign_reg.compare(reg_a) != 0) {
-							copyreg(assign_reg, reg_a);
-						}
-						sub(assign_reg, reg_b);
-						if (type == ARR) {
-							storeArrayAssign(assign_reg);
-						}
-					}
-					else {
-						vector<string> second_comp = split($3, " ");
-						if (findIdetifier(second_comp[0])) {
-							Identifier* second_id = getIdentifier(second_comp[0]);
-							if (second_id->getAssigment()){
-								string reg_b = second_id->getRegister();
-								if(reg_b.compare("None") == 0) {
-									reg_b = getRegID();
-									createNumber(second_id->getMemory(), "A");
-									load(reg_b);
-									second_id->setRegister(reg_b);
-									registers.erase(registers.begin());
-									registers.push_back(make_pair(reg_b, second_id->getName()));
-								}
-								assign_reg = loadAssignReg();
-								if (assign_reg.compare(reg_a) != 0) {
-									if (assign_reg.compare(reg_b) == 0) {
-										sub(assign_reg, reg_a);
-									}
-									else {
-										copyreg(assign_reg, reg_a);
-										sub(assign_reg, reg_b);
-									}
-								}
-								else {
-									sub(assign_reg, reg_b);
-								}
-								if (type == ARR) {
-									storeArrayAssign(assign_reg);
-								}
-							}
-							else {
-								string errorMessage = "Odwołanie do niezainicjowanej zmiennej ";
-								errorMessage.append(second_comp[0]);
-								yyerror(errorMessage.c_str());
-								exit(1);
-							}
-						}
-						else if (findArray(second_comp[0])) {
-							Array* second_arr = getArray(second_comp[0]);
-							if (isNumber(second_comp[1])) {
-								string reg_b = getRegID();
-								registers.erase(registers.begin());
-								registers.push_back(make_pair(reg_b, "None"));
-								createNumber(second_arr->getMemoryStart() + stoll(second_comp[1]), "A");
-								load(reg_b);
-								assign_reg = loadAssignReg();
-								if (assign_reg.compare(reg_a) != 0) {
-									copyreg(assign_reg, reg_a);
-								}
-								sub(assign_reg, reg_b);
-								if (type == ARR) {
-									storeArrayAssign(assign_reg);
-								}
-							}
-							else if (findIdetifier(second_comp[1])) {
-								Identifier* tmp_id = getIdentifier(second_comp[1]);
-								string reg_b;
-								if (tmp_id->getAssigment()) {
-									string add_tmp = tmp_id->getRegister();
-									if (add_tmp.compare("None") == 0) {
-										add_tmp = getRegID();
-										registers.erase(registers.begin());
-										registers.push_back(make_pair(add_tmp, second_comp[1]));
-										tmp_id->setRegister(add_tmp);
-										createNumber(tmp_id->getMemory(), "A");
-										load(add_tmp);
-									}
-									reg_b = getRegID();
-									createNumber(second_arr->getMemoryStart(), "A");
-									add("A", add_tmp);
-									load(reg_b);
-									assign_reg = loadAssignReg();
-									if (assign_reg.compare(reg_a) != 0) {
-										copyreg(assign_reg, reg_a);
-									}
-									sub(assign_reg, reg_b);
-									if (type == ARR) {
-										storeArrayAssign(assign_reg);
-									}
-								}
-							}
-						}
-					}
-				}
-				else if (findArray(first_comp[0])){
-					Array* first_array = getArray(first_comp[0]);
-					string reg_a;
-					if (isNumber(first_comp[1])) {
-						reg_a = getRegID();
-						createNumber(first_array->getMemoryStart() + stoll(first_comp[1]), "A");
-						load(reg_a);
-						registers.erase(registers.begin());
-						registers.push_back(make_pair(reg_a, "None"));
-					}
-					else if (findIdetifier(first_comp[1])) {
-						Identifier* tmp = getIdentifier(first_comp[1]);
-						if (tmp->getAssigment()) {
-							string tmp_reg = tmp->getRegister();
-							if (tmp_reg.compare("None") == 0) {
-								tmp_reg = getRegID();
-								registers.erase(registers.begin());
-								registers.push_back(make_pair(tmp_reg, first_comp[1]));
-								tmp->setRegister(tmp_reg);
-								createNumber(tmp->getMemory(), "A");
-								load(tmp_reg);
-							}
-							reg_a = getRegID();
-							createNumber(first_array->getMemoryStart(), "A");
-							add("A", tmp_reg);
-							load(reg_a);
-							registers.erase(registers.begin());
-							registers.push_back(make_pair(reg_a, "None"));
-						}
-					}
-					if (isNumber($3)) {
-						string reg_b = getRegID();
-						registers.erase(registers.begin());
-						registers.push_back(make_pair(reg_b, "None"));
-						createNumber(stoll($3), reg_b);
-						assign_reg = loadAssignReg();
-						copyreg(assign_reg, reg_a);
-						sub(assign_reg, reg_b);
-						if (type == ARR) {
-							storeArrayAssign(assign_reg);
-						}
-					}
-					else {
-						vector<string> second_comp = split($3, " ");
-						if (findIdetifier(second_comp[0])) {
-							Identifier* second_id = getIdentifier(second_comp[0]);
-							if (second_id->getAssigment()){
-								string reg_b = second_id->getRegister();
-								if(reg_b.compare("None") == 0) {
-									reg_b = getRegID();
-									createNumber(second_id->getMemory(), "A");
-									load(reg_b);
-									second_id->setRegister(reg_b);
-									registers.erase(registers.begin());
-									registers.push_back(make_pair(reg_b, second_id->getName()));
-								}
-								assign_reg = loadAssignReg();
-								if (assign_reg.compare(reg_b) == 0) {
-									sub(assign_reg, reg_a);
-								}
-								else {
-									copyreg(assign_reg, reg_a);
-									sub(assign_reg, reg_b);
-								}
-								if (type == ARR) {
-									storeArrayAssign(assign_reg);
-								}
-							}
-							else {
-								string errorMessage = "Odwołanie do niezainicjowanej zmiennej ";
-								errorMessage.append(second_comp[0]);
-								yyerror(errorMessage.c_str());
-								exit(1);
-							}
-						}
-						else if (findArray(second_comp[0])) {
-							Array* second_arr = getArray(second_comp[0]);
-							if (isNumber(second_comp[1])) {
-								string reg_b = getRegID();
-								registers.erase(registers.begin());
-								registers.push_back(make_pair(reg_b, "None"));
-								createNumber(second_arr->getMemoryStart() + stoll(second_comp[1]), "A");
-								load(reg_b);
-								assign_reg = loadAssignReg();
-								copyreg(assign_reg, reg_a);
-								sub(assign_reg, reg_b);
-								if (type == ARR) {
-									storeArrayAssign(assign_reg);
-								}
-							}
-							else if (findIdetifier(second_comp[1])) {
-								Identifier* tmp_id = getIdentifier(second_comp[1]);
-								string reg_b;
-								if (tmp_id->getAssigment()) {
-									string add_tmp = tmp_id->getRegister();
-									if (add_tmp.compare("None") == 0) {
-										add_tmp = getRegID();
-										registers.erase(registers.begin());
-										registers.push_back(make_pair(add_tmp, second_comp[1]));
-										tmp_id->setRegister(add_tmp);
-										createNumber(tmp_id->getMemory(), "A");
-										load(add_tmp);
-									}
-									reg_b = getRegID();
-									createNumber(second_arr->getMemoryStart(), "A");
-									add("A", add_tmp);
-									load(reg_b);
-									assign_reg = loadAssignReg();
-									copyreg(assign_reg, reg_a);
-									sub(assign_reg, reg_b);
-									if (type == ARR) {
-										storeArrayAssign(assign_reg);
-									}
-								}
-							}
-						}
-					}
-				}
+			else if (type == ARR) {
+				storeArrayAssign(reg_a);
 			}
 		}
 		| value MULT value
@@ -1077,27 +354,86 @@ expression:
 condition:
 		value EQ value
 		{
-			cout << "equals" << endl;
+			string reg_a;
+			string reg_b;
+			string reg_comp_a;
+			string reg_comp_b;
+			tie(reg_a, reg_b) = loadValuesToRegister($1,$3);
+			reg_comp_a = getRegID();
+			reg_comp_b = getRegID();
+			copyreg(reg_comp_a, reg_a);
+			copyreg(reg_comp_b, reg_b);
+			sub(reg_comp_a, reg_b);
+			sub(reg_comp_b, reg_a);
+			add(reg_comp_a, reg_comp_b);
+			jzero(reg_comp_a, to_string(step + 2));
+			jumpStack.push(step);
+			jump("-1");
 		}
 		| value NE value
 		{
-			cout << "not equals" << endl;
+			string reg_a;
+			string reg_b;
+			string reg_comp_a;
+			string reg_comp_b;
+			tie(reg_a, reg_b) = loadValuesToRegister($1,$3);
+			reg_comp_a = getRegID();
+			reg_comp_b = getRegID();
+			copyreg(reg_comp_a, reg_a);
+			copyreg(reg_comp_b, reg_b);
+			sub(reg_comp_a, reg_b);
+			sub(reg_comp_b, reg_a);
+			add(reg_comp_a, reg_comp_b);
+			jumpStack.push(step);
+			jzero(reg_comp_a, to_string(-1));
 		}
 		| value LT value
 		{
-			cout << "less" << endl;
+			string reg_a;
+			string reg_b;
+			string reg_comp_a;
+			string reg_comp_b;
+			tie(reg_a, reg_b) = loadValuesToRegister($1,$3);
+			sub(reg_b, reg_a);
+			jumpStack.push(step);
+			jzero(reg_b, to_string(-1));
 		}
 		| value GT value
 		{
-			cout << "great" << endl;
+			string reg_a;
+			string reg_b;
+			string reg_comp_a;
+			string reg_comp_b;
+			tie(reg_a, reg_b) = loadValuesToRegister($1,$3);
+			inc(reg_b);
+			sub(reg_b, reg_a);
+			jzero(reg_comp_a, to_string(step + 2));
+			jumpStack.push(step);
+			jump("-1");
 		}
 		| value LE value
 		{
-			cout << "less eq" << endl;
+			string reg_a;
+			string reg_b;
+			string reg_comp_a;
+			string reg_comp_b;
+			tie(reg_a, reg_b) = loadValuesToRegister($1,$3);
+			inc(reg_b);
+			sub(reg_b, reg_a);
+			jumpStack.push(step);
+			jzero(reg_b, to_string(-1));
 		}
 		| value GE value
 		{
-			cout << "great eq" << endl;
+			string reg_a;
+			string reg_b;
+			string reg_comp_a;
+			string reg_comp_b;
+			tie(reg_a, reg_b) = loadValuesToRegister($1,$3);
+			sub(reg_b, reg_a);
+			jzero(reg_comp_a, to_string(step + 2));
+			jumpStack.push(step);
+			jump("-1");
 		}
 		;
 
@@ -1210,9 +546,6 @@ int main(int argc, char **argv) {
 	out.open(argv[2]);
 	for (long long int i = 0; i < commands.size(); i++) {
 		out << commands[i] << endl;
-	}
-	for (long long int i = 0; i < registers.size(); i++) {
-		cout << registers[i].first << ":" << registers[i].second << " | ";
 	}
 	cout << endl;
 	out.close();

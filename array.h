@@ -7,12 +7,8 @@ using namespace std;
 class Array {
 private:
 	string name;
-	string* registr;
-	bool* assigment;
-	long long int* value;
 	long long int arr_start;
 	long long int arr_end;
-	long long int size;
 	long long int memory_start;
 
 public:
@@ -39,7 +35,7 @@ public:
 	long long int getMemoryStart() {
 		return this->memory_start;
 	}
-	
+
 };
 
 #endif

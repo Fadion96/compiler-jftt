@@ -29,6 +29,7 @@
 	vector<string> registers{"B","C","D","E","F","G","H"}; // map would be better? <reg, value> nope
 	stack<long long int> jumpStack;
 	stack<long long int> elseStack;
+	stack<long long int> loopStack;
 
 
 	vector<string> ident;
@@ -137,12 +138,19 @@ command:
 		}
 		| IF condition THEN commands
 		{
-			cout << " "<< $2 << endl;
+			long long int jumpPosition = jumpStack.top();
+			jumpStack.pop();
+			elseStack.push(step);
+			jump("-1");
+			fixJump(jumpPosition);
 		}
-		ELSE commands ENDIF
+		ELSE commands
 		{
-			cout << "if else" << endl;
+			long long int jump = elseStack.top();
+			elseStack.pop();
+			fixJump(jump);
 		}
+		ENDIF
 		| IF condition THEN commands
 		{
 			long long int jump = jumpStack.top();
@@ -150,14 +158,30 @@ command:
 			fixJump(jump);
 		}
 		ENDIF
-
-		| WHILE condition DO commands ENDWHILE
+		| WHILE
 		{
-			cout << "while" << endl;
+			loopStack.push(step);
 		}
-		| DO commands WHILE condition ENDDO
+		condition DO commands
 		{
-			cout << "do while" << endl;
+		 	long long int jumpPosition = jumpStack.top();
+			jumpStack.pop();
+			jump(to_string(loopStack.top()));
+			loopStack.pop();
+			fixJump(jumpPosition);
+		}
+		ENDWHILE
+		| DO
+		{
+			loopStack.push(step);
+		}
+		commands WHILE condition ENDDO
+		{
+			long long int jumpPosition = jumpStack.top();
+			jumpStack.pop();
+			jump(to_string(loopStack.top()));
+			loopStack.pop();
+			fixJump(jumpPosition);
 		}
 		| FOR PID FROM value TO value DO commands ENDFOR
 		{

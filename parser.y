@@ -691,15 +691,119 @@ expression:
 		}
 		| value MULT value
 		{
-			cout << "*" << endl;
+			string reg_a;
+			string reg_b;
+			tie(reg_a, reg_b) = loadValuesToRegister($1,$3);
+			string mult = getRegID();
+			string tmp = getRegID();
+			string tmp_a = getRegID();
+			string tmp_b = getRegID();
+			sub(mult, mult);
+			sub(tmp_a,tmp_a);
+			copyreg(tmp_b, reg_a);
+			sub(tmp_b, reg_b);
+			jzero(tmp_b, to_string(step + 11));
+			copyreg(tmp, reg_a);
+			copyreg(tmp_b, reg_b);
+			sub(tmp_b, tmp_a);
+			jzero(tmp_b, to_string(step + 17));
+			inc(tmp_b);
+			jodd(tmp_b, to_string(step + 2));
+			add(mult, tmp);
+			half(reg_b);
+			add(tmp,tmp);
+			jump(to_string(step - 8));
+			copyreg(tmp, reg_b);
+			copyreg(tmp_b, reg_a);
+			sub(tmp_b, tmp_a);
+			jzero(tmp_b, to_string(step + 7));
+			inc(tmp_b);
+			jodd(tmp_b, to_string(step + 2));
+			add(mult, tmp);
+			half(reg_a);
+			add(tmp, tmp);
+			jump(to_string(step - 8));
+			if (type == IDE){
+				storeIdeAssign(mult);
+			}
+			else if (type == ARR) {
+				storeArrayAssign(mult);
+			}
 		}
 		| value DIV value
 		{
-			cout << "/" << endl;
+			string reg_a;
+			string reg_b;
+			tie(reg_a, reg_b) = loadValuesToRegister($1,$3);
+			string divi = getRegID();
+			string tmp = getRegID();
+			string tmp_b = getRegID();
+			sub(divi, divi);
+			sub(tmp, tmp);
+			jzero(reg_a, to_string(step + 20));
+			jzero(reg_b, to_string(step + 19));
+			copyreg(tmp_b, reg_b);
+			sub(tmp_b, reg_a);
+			jzero(tmp_b, to_string(step + 2));
+			jump(to_string(step + 4));
+			add(reg_b, reg_b);
+			inc(tmp);
+			jump(to_string(step - 7));
+			jzero(tmp, to_string(step + 11));
+			dec(tmp);
+			half(reg_b);
+			add(divi, divi);
+			copyreg(tmp_b, reg_b);
+			sub(tmp_b, reg_a);
+			jzero(tmp_b, to_string(step + 2));
+			jump(to_string(step + 3));
+			sub(reg_a, reg_b);
+			inc(divi);
+			jump(to_string(step - 10));
+			if (type == IDE){
+				storeIdeAssign(divi);
+			}
+			else if (type == ARR) {
+				storeArrayAssign(divi);
+			}
 		}
 		| value MOD value
 		{
-			cout << "%" << endl;
+			string reg_a;
+			string reg_b;
+			tie(reg_a, reg_b) = loadValuesToRegister($1,$3);
+			string divi = getRegID();
+			string tmp = getRegID();
+			string tmp_b = getRegID();
+			sub(divi, divi);
+			sub(tmp, tmp);
+			jzero(reg_a, to_string(step + 21));
+			jzero(reg_b, to_string(step + 19));
+			copyreg(tmp_b, reg_b);
+			sub(tmp_b, reg_a);
+			jzero(tmp_b, to_string(step + 2));
+			jump(to_string(step + 4));
+			add(reg_b, reg_b);
+			inc(tmp);
+			jump(to_string(step - 7));
+			jzero(tmp, to_string(step + 12));
+			dec(tmp);
+			half(reg_b);
+			add(divi, divi);
+			copyreg(tmp_b, reg_b);
+			sub(tmp_b, reg_a);
+			jzero(tmp_b, to_string(step + 2));
+			jump(to_string(step + 3));
+			sub(reg_a, reg_b);
+			inc(divi);
+			jump(to_string(step - 10));
+			copyreg(reg_a, reg_b);
+			if (type == IDE){
+				storeIdeAssign(reg_a);
+			}
+			else if (type == ARR) {
+				storeArrayAssign(reg_a);
+			}
 		}
 		;
 

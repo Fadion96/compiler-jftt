@@ -504,7 +504,7 @@ command:
 			jzero(iterator_reg, to_string(-1));
 
 		}
-		DO command ENDFOR
+		DO commands ENDFOR
 		{
 			string iterator_reg = getRegID();
 			createNumber(getIdentifier($2)->getMemory(), "A");
@@ -989,7 +989,7 @@ int main(int argc, char **argv) {
 	yyin = fopen(argv[1], "r");
 	yyparse();
 	fclose(yyin);
-	wypisz();
+	/* wypisz(); */
 	if (!DEBUG) {
 		ofstream out;
 		out.open(argv[2]);
